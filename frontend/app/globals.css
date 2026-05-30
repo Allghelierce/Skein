@@ -134,18 +134,6 @@ body {
   will-change: transform;
 }
 
-/* tactical grid scroll — the pattern tiles every 78px, so shifting one full cell
-   downward loops seamlessly. Faster than the terrain for a parallax "covering
-   ground" read as the swarm flies forward (up-screen). */
-@keyframes grid-scroll {
-  from { background-position: 0 0, 0 0; }
-  to   { background-position: 0 78px, 0 78px; }
-}
-.grid-scroll {
-  animation: grid-scroll 2.2s linear infinite;
-  will-change: background-position;
-}
-
 /* airspeed wake — particles shed downward behind each drone (forward flight is
    up-screen, so the wake trails down), reinforcing that the swarm is travelling
    over the moving terrain rather than hovering in place. */
@@ -192,7 +180,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .drone-hover,
   .terrain-scroll,
-  .grid-scroll,
   .edge-jammed,
   .edge-reroute,
   .animate-skein-ring,
