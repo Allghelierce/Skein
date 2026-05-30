@@ -1,0 +1,124 @@
+PROJECT: SWARMSHIELD
+A Self-Healing Drone-Swarm Mesh Network That Defends Itself From Attack
+(Bow Capital x Firestorm Hackathon - Track 2: AI Compute / EE - Secure Mesh + RF Jamming)
+Solo build, ~1.5 days, one laptop. Also a data-science portfolio piece.
+
+(filename is ironic - this is the GOOD idea that replaced the original)
+
+===============================================================================
+1. ONE-LINE PITCH
+===============================================================================
+An AI-defended drone swarm that keeps its communications alive under jamming
+and cyber attack - the enemy tries to cut the swarm's comms, a classic-ML
+detector spots it instantly, and the network heals itself by rerouting around
+the damage. Live, interactive, on a command-center screen.
+
+===============================================================================
+2. WHY THIS WINS THIS SPECIFIC ROOM
+===============================================================================
+- Firestorm Labs builds autonomous DRONE SWARMS deployed to the front line,
+  where comms are heavily jammed. Keeping a swarm connected under attack is
+  literally their problem. This demo shows the thing they worry about.
+- Bow Capital funds AI/ML + Aerospace & Defense, and backs UC innovation
+  (owner is UCSD). This is AI/ML applied to a real defense problem.
+- Hits Track 2 dead-on: secure mesh networks + RF jamming + AI compute.
+
+===============================================================================
+3. WHY DRONE SWARMS COMMUNICATE (the "why it matters")
+===============================================================================
+- Avoid collisions / hold formation.
+- Divide the work (split a search area, hand off targets).
+- Survive losses: if a drone is downed, others reassign its job - no single
+  point of failure.
+- Share sensor data (one drone sees a target, others react).
+- RELAY (the mesh): messages hop drone-to-drone back to base, extending range
+  far beyond any single radio link.
+The enemy's #1 counter is to CUT that communication (jam / hack / partition).
+Keeping the swarm talking despite that is the hard, valuable problem.
+
+===============================================================================
+4. THE THREE PIECES
+===============================================================================
+PIECE 1 - THE SWARM (the visual / front end)
+  Drones shown as nodes on a map, connected by links, passing messages.
+  Links pulse green when healthy. The star of the demo.
+
+PIECE 2 - THE BRAIN (the ML model - the data science / portfolio piece)
+  A CLASSIC ML model trained on real CIC network-intrusion data. Watches the
+  swarm's live traffic and answers: "normal, or attack/jamming?"
+
+PIECE 3 - THE BATTLE (the action)
+  Attacker jams a link or hacks a drone -> the ML brain detects it ->
+  defender reroutes around the damage / isolates the bad node -> swarm survives.
+  Judge can click to attack any node and watch the network heal itself.
+
+Flow:  Attack happens -> ML model spots it -> swarm reroutes -> map shows healing
+
+===============================================================================
+5. THE ML PIECE (PORTFOLIO CENTERPIECE) - CLASSIC ML ONLY
+===============================================================================
+Task: detect attacks/jamming on the mesh from network/link features, live.
+Dataset: CIC (Canadian Institute for Cybersecurity) intrusion data - real,
+  labeled, tabular, gold-standard for this.
+Work to showcase:
+  - Clean + explore (class imbalance, feature distributions)
+  - Feature engineering (flow stats, packet-delivery ratio, link-quality)
+  - Train + compare Random Forest / XGBoost / Logistic Regression
+  - Evaluate: precision/recall, confusion matrix, ROC-AUC
+  - Feature importance ("which signals reveal an attack")
+Deployment: the trained model scores traffic live in the demo. The Blue
+  defender IS your model - the cool visual is driven by its predictions.
+
+===============================================================================
+6. WHAT THE FRONT END LOOKS LIKE
+===============================================================================
+Dark "command center" theme, neon green/red/blue, high-contrast for projector.
+  CENTER : The Swarm Map - glowing drone nodes + links. Green=healthy,
+           red/dashed=jammed, red node=hacked, blue=rerouting. Always moving.
+  RIGHT-TOP : ML Detector panel - live "ATTACK detected, link D1-D4, 94%,
+              RF Jamming, model: RandomForest". Your data science, visible.
+  RIGHT-BOTTOM : Live Event Feed - timestamped detections/reroutes/recoveries.
+  BOTTOM : Attack Controls - [Jam a link] [Hack a drone] [Reset] (judge uses).
+  TOP BAR : LIVE indicator + overall threat level.
+
+===============================================================================
+7. STACK
+===============================================================================
+- Frontend: Next.js + TypeScript, Tailwind + shadcn/ui, React Flow (graph),
+  Framer Motion (animations).
+- Mesh: real message-passing between node processes/objects (real routing,
+  real failover - NOT fake variables).
+- ML: classic models (scikit-learn / XGBoost), trained offline, served live.
+- Runs locally on one laptop for the demo.
+
+===============================================================================
+8. BUILD ORDER ("secure the demo first")
+===============================================================================
+0. Get + explore the CIC dataset; confirm a model trains and scores well.
+1. Train the classic ML detector; save it. (Portfolio core done early.)
+2. Build the swarm map - nodes + links rendering on screen.
+3. Make messages flow between nodes; show live traffic.
+4. Wire the live traffic into the ML model -> real-time attack detection.
+5. Add attack actions (jam link / hack node) + auto-reroute defense.
+6. Add judge controls + the detector/event panels.
+7. Polish: animations, dark theme, demo script, cached fallback run.
+Always keep a working version. Nothing fancy added until 1-5 work end to end.
+
+===============================================================================
+9. HARD RULES
+===============================================================================
+- One laptop. No two-machine networking.
+- REAL effects only - no hardcoded/fake numbers (the original idea's mistake).
+- RF jamming is SIMULATED as link degradation (real jamming is illegal/FCC);
+  say so honestly. The mesh routing + self-healing is REAL code.
+- ML is the substance, not decoration (it's the portfolio piece).
+- Classic ML, not deep learning.
+- Have a cached fallback so a live failure != dead demo.
+
+===============================================================================
+10. HONEST RISKS
+===============================================================================
+- Time: solo in 1.5 days. Steps 6-7 (polish/interactivity) are where time runs
+  out. Steps 1-5 are the guaranteed demo; the rest is upside.
+- Don't let the swarm visuals become cosmetic - the routing must be real.
+- Keep the ML honest (proper train/test split, real eval) for the portfolio.

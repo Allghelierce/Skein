@@ -1,0 +1,76 @@
+so were doing defense themed hackathon with the following track:
+Note: i have 1.5 days to do this and need to present to judges and want to use two laptops and want the project to be flashy yet effective. Need to secure first.
+
+----------------------------------------------------------------------------
+Logistics & Cybersecurity (Software-only) Track
+This software-only track gives teams the flexibility to explore defense problems through data, software, cybersecurity, and AI. Projects can focus on defense supply chains, contracting logistics, procurement, transportation, inventory risk, or mission-critical resource allocation. Teams may also choose to explore cybersecurity-focused problems such as intercepting radio messages, detecting suspicious activity, decoding secret messages, analyzing vulnerabilities, or modeling cyberattacks on defense systems. Teams are welcome to use any dataset or API they find useful, including but not limited to the example resources listed below.
+Teams are not required to use these resources. These are only example datasets, APIs, and references that may be helpful.
+Earth Observation Dataset
+https://eod-grss-ieee.com/dataset-search
+Google Earth Engine
+https://developers.google.com/earth-engine/datasets
+NASA APIs
+https://api.nasa.gov/
+Satellite Tracking API
+https://keeptrack.space/api
+Satellite Tracking API
+https://github.com/AviationEdgeAPI/Satellite-Tracker-API
+DLA datasets
+https://catalog.data.gov/dataset?publisher=Defense+Logistics+Agency
+DLA PUB LOG
+https://www.dla.mil/Information-Operations/Services/Applications/PUB-LOG/
+AFIT logistics paper
+https://scholar.afit.edu/cgi/viewcontent.cgi?article=1663&context=facpub
+Defense Contract Data
+https://sam.gov/reports/opp/standard
+OR-GRPO defense dataset
+https://huggingface.co/datasets/lokeshe09/or-grpo-defense-dataset
+AWS Open Data Registry
+https://registry.opendata.aws/
+AWS earth-observation tag
+https://registry.opendata.aws/tag/earth-observation/
+DrivenData EO list
+https://drivendata.co/blog/public-eo-data-sources
+Google Earth Engine
+https://developers.google.com/earth-engine/datasets
+Alert West
+https://alertwest.live/
+EarthDaily
+https://earthdaily.com/
+Awesome Cybersecurity Datasets
+https://github.com/shramos/Awesome-Cybersecurity-Datasets
+GWU cybersecurity guide
+https://libguides.gwu.edu/cybersecurity/datasets
+Atlantic Council dataset
+https://www.atlanticcouncil.org/content-series/cybersecurity-policy-and-strategy/software-supply-chain-security-the-dataset/
+Virat Video Dataset
+https://viratdata.org/
+Coco Dataset
+https://cocodataset.org/#home
+SupplyChainCloud attack events
+https://www.kaggle.com/datasets/datasetengineer/supplychaincloud-attackevents
+Supply-chain attack paper
+https://www.ijsreat.com/archiver/archives/prediction_of_cyberattack_on_software_supply_chain.pdf
+Satellite-to-supply-chain paper
+https://www.sciencedirect.com/science/article/pii/S2590332220302967
+SkyFi defense imagery
+https://skyfi.com/en/industries/military-defense
+Bureau of Transportation Statistics
+https://www.bts.gov/freight-indicators?
+Marine Vessel Presence
+https://globalfishingwatch.org/platform-update/global-ais-vessel-presence-dataset/?
+National Vulnerability Database
+https://nvd.nist.gov/
+Canadian Institute for Cybersecurity Datasets
+https://www.unb.ca/cic/datasets/
+Cybersecurity Datasets
+
+
+https://github.com/shramos/Awesome-Cybersecurity-Datasets?utm_source=chatgpt.com
+Donkeycar!
+
+
+https://docs.donkeycar.com/guide/deep_learning/simulator/
+WallHacks
+https://github.com/ruvnet/RuView
+

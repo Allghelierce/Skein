@@ -1,0 +1,46 @@
+SWARMSHIELD - EXPANSION & COMPANY POTENTIAL
+(only after the core demo in badIDEA.txt works end-to-end)
+
+===============================================================================
+1. IF YOU FINISH EARLY - QUICK ADD-ONS (in order of value)
+===============================================================================
+- More attack types: GPS spoofing, node takeover, message injection - each a
+  new class your ML model flags. More classes = richer portfolio + demo.
+- Real drone flight paths: replay public UAV telemetry so drones move on real
+  recorded tracks instead of random motion. Grounds the visuals.
+- Model comparison live: toggle Random Forest vs XGBoost vs Logistic Regression
+  on screen, show the accuracy/latency difference. Great DS storytelling.
+- Feature-importance view: live panel showing which signals triggered the
+  detection ("packet-delivery ratio dropped -> jamming"). Explainability = trust.
+- RTL-SDR spectrum waterfall (~$30, RECEIVE-ONLY, legal): show a real RF
+  spectrum for credibility. Optional flex; never depend on it.
+- Severity scoring + auto "incident brief" (one-line summary per attack).
+
+===============================================================================
+2. COMPANY THESIS (Bow would care)
+===============================================================================
+Problem: autonomous drone swarms are going to the front line (Firestorm et al.),
+  but their comms are the soft target - jam or hack them and the swarm fails.
+  There is almost no autonomous, ML-driven defense for swarm mesh comms today
+  (existing AI-security players target web/IT, not UAS mesh).
+Product: continuous, ML-driven resilience + intrusion detection for tactical
+  mesh networks. Attaches to a real (or digital-twin) swarm, detects jamming/
+  intrusion in real time, and keeps the network connected under attack.
+Customer: defense / gov (DoD, allied forces), drone manufacturers, critical-
+  infrastructure mesh (maritime, energy).
+Why now: heavy battlefield jamming (e.g. Ukraine) + the rush to autonomous
+  swarms = urgent, unmet need. DoD is actively funding autonomous cyber defense.
+
+===============================================================================
+3. POST-HACKATHON TECHNICAL ROADMAP (do NOT attempt during the 1.5 days)
+===============================================================================
+- Real radios/SDRs and a real (legal, contained) RF testbed.
+- Real mesh protocols (e.g. drone comms / MANET routing) instead of simulated.
+- Online learning: model adapts to new jamming patterns it has not seen.
+- Digital twin: plug into a customer's real swarm topology.
+- Edge deployment: run the detector on a drone's companion computer.
+- Tie in Firestorm's edge-manufacturing (xCell) angle: secure the forward
+  factory network + print-file integrity.
+
+OUT OF SCOPE for the hackathon (do not build now): Kubernetes/Istio, two-laptop
+networking, deep learning, custom RF hardware. These are fantasy on the timeline.

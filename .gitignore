@@ -1,0 +1,33 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+.vercel/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Python / ML
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+*.joblib
+*.pkl
+
+# Data (large datasets - don't commit raw CIC dumps)
+data/raw/
+*.csv
+!data/sample/*.csv
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.log
