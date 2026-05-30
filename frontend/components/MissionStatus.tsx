@@ -25,10 +25,10 @@ export function MissionStatus({ analysis }: Props) {
 
   return (
     <div
-      className="flex items-center justify-between gap-4 border-b px-5 py-2"
+      className="flex items-center justify-between gap-4 border-b px-5 py-1.5"
       style={{
         borderColor: HEX.line,
-        background: danger ? "rgba(255,59,92,0.06)" : "transparent",
+        background: danger ? "rgba(255,59,92,0.06)" : "rgba(255,255,255,0.015)",
       }}
     >
       {/* verdict */}
