@@ -30,52 +30,50 @@ function between(lo: number, hi: number): number {
   return lo + rnd() * (hi - lo);
 }
 
-// ── Topology: concentric-ring swarm (1 hub + inner ring + outer ring). Built by
-//    a generator so the count is easy to tune. Spokes, ring adjacency, and radial
-//    links give a dense, symmetric, redundant mesh so a reroute always exists. ──
-const RINGS: { count: number; r: number; offsetDeg: number }[] = [
-  { count: 1, r: 0, offsetDeg: 0 }, // hub
-  { count: 6, r: 0.15, offsetDeg: -90 }, // inner ring
-  { count: 12, r: 0.29, offsetDeg: -90 }, // middle ring
-  { count: 18, r: 0.44, offsetDeg: -90 }, // outer ring
-]; // 37 drones total
+// ── Topology: MUST mirror the Python backend (backend/mesh/graph.py) exactly so
+//    MOCK mode and LIVE mode look identical. 13 drones — core D1 + inner ring of
+//    4 + outer ring of 8 — wired by symmetric k-nearest-neighbour (min degree 4),
+//    a dense redundant mesh that survives losing several nodes. ──
+const NODE_COORDS: Record<string, [number, number]> = {
+  D1: [0.5, 0.5], // core
+  D2: [0.5, 0.28], // inner ring
+  D3: [0.72, 0.5],
+  D4: [0.5, 0.72],
+  D5: [0.28, 0.5],
+  D6: [0.5, 0.1], // outer ring
+  D7: [0.78, 0.22],
+  D8: [0.9, 0.5],
+  D9: [0.78, 0.78],
+  D10: [0.5, 0.9],
+  D11: [0.22, 0.78],
+  D12: [0.1, 0.5],
+  D13: [0.22, 0.22],
+};
+const MIN_DEGREE = 4;
 
 function buildTopology() {
-  const layout: { id: string; x: number; y: number }[] = [];
-  const ringIds: string[][] = [];
-  let n = 1;
-  for (const ring of RINGS) {
-    const ids: string[] = [];
-    for (let i = 0; i < ring.count; i++) {
-      const id = `D${n++}`;
-      ids.push(id);
-      if (ring.r === 0) {
-        layout.push({ id, x: 0.5, y: 0.5 });
-      } else {
-        const a = ((ring.offsetDeg + (360 / ring.count) * i) * Math.PI) / 180;
-        layout.push({ id, x: 0.5 + ring.r * Math.cos(a), y: 0.5 + ring.r * Math.sin(a) });
-      }
-    }
-    ringIds.push(ids);
-  }
+  const ids = Object.keys(NODE_COORDS);
+  const layout = ids.map((id) => ({ id, x: NODE_COORDS[id][0], y: NODE_COORDS[id][1] }));
 
-  const edges: [string, string][] = [];
-  const hub = ringIds[0];
-  // hub → first-ring spokes
-  if (ringIds[1]) for (const id of ringIds[1]) edges.push([hub[0], id]);
-  // ring adjacency around every non-hub ring
-  for (let r = 1; r < ringIds.length; r++) {
-    const ring = ringIds[r];
-    for (let i = 0; i < ring.length; i++) edges.push([ring[i], ring[(i + 1) % ring.length]]);
+  // Symmetric k-nearest: an edge exists if either endpoint counts the other among
+  // its MIN_DEGREE nearest. Same rule as graph.py's _build_dense_edges.
+  const edgeSet = new Set<string>();
+  for (const a of ids) {
+    const [ax, ay] = NODE_COORDS[a];
+    const nearest = ids
+      .filter((b) => b !== a)
+      .sort((b, c) => {
+        const db = (NODE_COORDS[b][0] - ax) ** 2 + (NODE_COORDS[b][1] - ay) ** 2;
+        const dc = (NODE_COORDS[c][0] - ax) ** 2 + (NODE_COORDS[c][1] - ay) ** 2;
+        return db - dc;
+      })
+      .slice(0, MIN_DEGREE);
+    for (const b of nearest) edgeSet.add([a, b].sort().join("|"));
   }
-  // radial: each node links inward to its nearest node on the previous ring,
-  // so the mesh stays dense and redundant (a reroute always exists)
-  for (let r = 2; r < ringIds.length; r++) {
-    const ring = ringIds[r];
-    const prev = ringIds[r - 1];
-    const ratio = ring.length / prev.length;
-    for (let i = 0; i < ring.length; i++) edges.push([ring[i], prev[Math.floor(i / ratio)]]);
-  }
+  const edges: [string, string][] = [...edgeSet]
+    .sort()
+    .map((k) => k.split("|") as [string, string]);
+
   return { layout, edges };
 }
 
