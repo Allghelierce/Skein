@@ -16,12 +16,12 @@ export function StatusBar({ state, connected, mode }: Props) {
   const hostiles = state?.links.filter((l) => l.status === "jammed").length ?? 0;
 
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-line bg-bg px-5 py-3">
+    <header className="flex items-center justify-between gap-4 border-b border-line bg-bg px-5 py-2.5">
       {/* brand */}
       <div className="flex items-center gap-3">
         <Mark />
         <div className="leading-none">
-          <div className="text-[0.95rem] font-semibold tracking-tight text-ink">Skein</div>
+          <div className="text-[0.95rem] font-bold tracking-[0.22em] text-ink">SKEIN</div>
           <div className="mt-1 label-xs">Swarm Defense</div>
         </div>
       </div>
