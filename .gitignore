@@ -28,6 +28,12 @@ data/raw/
 *.csv
 !**/data/sample/*.csv
 
+# Nested git worktrees (agents work here; never commit them into main)
+/ml/
+/mesh/
+/ui/
+/skein-integration/
+
 # OS / editor
 .DS_Store
 .idea/
