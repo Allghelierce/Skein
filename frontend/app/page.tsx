@@ -22,8 +22,6 @@ import { ReportCard } from "@/components/ReportCard";
 import { SwarmMap } from "@/components/SwarmMap";
 import { WhyFlagged } from "@/components/WhyFlagged";
 import { analyzeMesh } from "@/lib/mesh";
-import { MODEL_REPORT } from "@/lib/modelReport";
-import { HEX } from "@/lib/palette";
 import { useSwarm } from "@/lib/ws";
 
 export default function Page() {
@@ -63,22 +61,15 @@ export default function Page() {
           <BrandBar />
         </div>
 
-        {/* left rail — detection + reasoning + model report launcher */}
-        <aside className="gotham-rail scroll-thin absolute bottom-3 left-3 top-14 z-10 flex w-[300px] flex-col gap-3 overflow-y-auto">
+        {/* left rail — detection + reasoning + model report. The report fills the
+            remaining height so the rail matches the right rail; the ⤢ button in its
+            header opens the full report popout. */}
+        <aside className="gotham-rail absolute bottom-[140px] left-3 top-14 z-10 flex w-[300px] flex-col gap-3">
           <DetectorPanel state={state} />
           <WhyFlagged state={state} />
-          <button
-            type="button"
-            onClick={() => setReportOpen(true)}
-            className="panel flex items-center justify-between px-4 py-3 text-left transition-colors hover:border-ink-faint"
-          >
-            <span className="panel-title">Model Report</span>
-            <span className="flex items-center gap-2 text-[0.66rem] text-ink-dim">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.green }} />
-              {MODEL_REPORT.best_model} · {(MODEL_REPORT.accuracy * 100).toFixed(1)}%
-              <ExpandIcon />
-            </span>
-          </button>
+          <div className="min-h-0 flex-1">
+            <ReportCard onExpand={() => setReportOpen(true)} />
+          </div>
         </aside>
 
         {/* right rail — live data feed + activity (stops short of the bottom-right
@@ -127,15 +118,5 @@ export default function Page() {
         </div>
       )}
     </div>
-  );
-}
-
-function ExpandIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M15 3h6v6" />
-      <path d="M10 14 21 3" />
-      <path d="M21 14v7H3V3h7" />
-    </svg>
   );
 }
