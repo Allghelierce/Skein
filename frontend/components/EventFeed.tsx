@@ -20,7 +20,7 @@ interface Props {
 const SEV_COLOR: Record<NarrationSeverity, string> = {
   info: HEX.dim,
   detect: HEX.amber,
-  defend: HEX.blue,
+  defend: HEX.green, // healing/defense uses the data-feed green per palette
   recover: HEX.green,
   critical: HEX.red,
 };
@@ -48,9 +48,7 @@ export function EventFeed({ state }: Props) {
             background:
               headline.severity === "critical"
                 ? "rgba(255,59,92,0.07)"
-                : headline.severity === "defend"
-                  ? "rgba(59,130,246,0.06)"
-                  : "rgba(41,255,140,0.04)",
+                : "rgba(46,226,122,0.05)",
           }}
         >
           <div
