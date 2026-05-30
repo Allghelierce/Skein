@@ -508,7 +508,7 @@ function MapField() {
         </defs>
       </svg>
 
-      <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.4 }}>
+      <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.5 }}>
         <TerrainTile />
         <TerrainTile />
       </div>
