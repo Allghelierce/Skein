@@ -242,3 +242,34 @@ def test_predict_consumes_full_feature_schema():
     sim = Simulator()
     feats = sim._sample_features(sim.graph.links[0])
     assert set(feats) == set(FEATURE_COLUMNS)
+
+
+def test_live_attack_overlays_on_host_node_links():
+    sim = Simulator()
+    sim.heartbeat("ATK")        # register the host (attacker) node
+    sim.tick()
+    feats = {c: 1.0 for c in FEATURE_COLUMNS}
+    sim.push_live_attack(
+        feats, {"label": "PortScan", "attack_type": "PortScan", "confidence": 0.97},
+        ttl_ticks=3,
+    )
+    state = sim.tick()
+    atk_links = [l for l in state["links"] if "ATK" in (l["source"], l["target"])]
+    assert atk_links, "ATK node should have incident links"
+    assert all(l["prediction"]["label"] == "PortScan" for l in atk_links)
+    assert state["threat_level"] != "NOMINAL"
+
+
+def test_live_attack_expires_after_ttl():
+    sim = Simulator()
+    sim.heartbeat("ATK")
+    sim.tick()
+    feats = {c: 1.0 for c in FEATURE_COLUMNS}
+    sim.push_live_attack(
+        feats, {"label": "DoS", "attack_type": "DoS", "confidence": 0.95},
+        ttl_ticks=1,
+    )
+    for _ in range(4):
+        state = sim.tick()
+    atk_links = [l for l in state["links"] if "ATK" in (l["source"], l["target"])]
+    assert all(l["prediction"]["label"] != "DoS" for l in atk_links)

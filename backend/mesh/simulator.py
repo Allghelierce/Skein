@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import csv
 import random
+import threading
 import time
 from collections import deque
 from datetime import datetime
@@ -153,6 +154,10 @@ class Simulator:
         # the detector flags; tick() promotes them into hacked_nodes when the
         # dwell elapses. See COMPROMISE_DWELL_TICKS.
         self.compromised: dict[str, int] = {}
+        # Live-capture overlay (real attacker traffic). Written from the capture
+        # thread via push_live_attack(), read in tick(); guarded by a lock.
+        self._live_lock = threading.Lock()
+        self._live_attack: Optional[dict] = None
         # Externally-hosted nodes (e.g. laptop 2 as "ATK") and their liveness.
         self.host_nodes: set[str] = set()
         self.heartbeats: dict[str, float] = {}  # node_id -> last-seen clock time
@@ -298,10 +303,24 @@ class Simulator:
                 node.status = "healthy"
             self.hacked_nodes.clear()
             self.compromised.clear()
+            with self._live_lock:
+                self._live_attack = None
             self._announced_detections.clear()
             self._announced_reroutes.clear()
             self._announced_isolated.clear()
             self._emit("recovery", "All systems restored — swarm healthy")
+
+    def push_live_attack(
+        self, features: dict, prediction: dict, ttl_ticks: int = 3
+    ) -> None:
+        """Thread-safe. Overlay a live-captured attack onto host-node links for
+        the next ttl_ticks ticks. Called from the LiveCapture thread."""
+        with self._live_lock:
+            self._live_attack = {
+                "features": dict(features),
+                "prediction": dict(prediction),
+                "expires_tick": self.tick_count + ttl_ticks,
+            }
 
     # --- host-node heartbeats (laptop 2 as a real, killable node) ----------
     def heartbeat(self, node_id: str) -> None:
@@ -355,6 +374,17 @@ class Simulator:
                     link.attack_type = None
                 self._emit("detection", f"Drone {node_id} quarantined — isolating compromised node")
 
+        # Resolve any live-captured attack overlay (real attacker traffic).
+        with self._live_lock:
+            live = self._live_attack
+            if live is not None and live["expires_tick"] < self.tick_count:
+                live = self._live_attack = None
+        live_link_ids: set[str] = set()
+        if live is not None:
+            for host in self.host_nodes:
+                for l in self.graph.links_incident_to(host):
+                    live_link_ids.add(l.id)
+
         hacked = self.hacked_nodes
         # Host nodes whose heartbeats lapsed (laptop killed/offline) are treated
         # as removed from the mesh, exactly like a quarantined drone.
@@ -376,6 +406,21 @@ class Simulator:
                 link.reasons = []
                 link.features = {}
                 self._announced_detections.discard(link.id)
+                continue
+            if live is not None and link.id in live_link_ids and link.id not in severed:
+                link.prediction = live["prediction"]
+                link.features = live["features"]
+                link.reasons = self._explain(live["features"])
+                link.status = "jammed"
+                link.active = False
+                jammed_count += 1
+                if link.id not in self._announced_detections:
+                    self._emit(
+                        "detection",
+                        f"LIVE ATTACK on {link.id}: {live['prediction']['label']} "
+                        f"({live['prediction']['confidence'] * 100:.0f}% conf) — real traffic",
+                    )
+                    self._announced_detections.add(link.id)
                 continue
             feats = self._sample_features(link)
             pred = self.detector.predict(feats)
