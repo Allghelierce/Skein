@@ -176,18 +176,18 @@ body {
 }
 .risk-pulse { animation: risk-pulse 1.9s ease-in-out infinite; }
 
-/* respect reduced-motion: kill all looping + one-shot motion */
+/* reduced-motion: the GENTLE ambient motion (terrain drift, drone hover/wake)
+   keeps playing so the swarm always reads as alive — important for the demo,
+   and low vestibular risk. Only the aggressive, rapid-flashing combat effects
+   (attack snaps, marching dashes, pulses) are suppressed. */
 @media (prefers-reduced-motion: reduce) {
-  .drone-hover,
-  .terrain-scroll,
   .edge-jammed,
   .edge-reroute,
   .animate-skein-ring,
   .animate-skein-pulse,
   .shockwave,
   .edge-snap,
-  .risk-pulse,
-  .drone-wake-dot {
+  .risk-pulse {
     animation: none !important;
   }
 }
