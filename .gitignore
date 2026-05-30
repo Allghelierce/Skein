@@ -35,6 +35,8 @@ backend/data/*.csv
 /ml/
 /mesh/
 /ui/
+/phase2a/
+/phase2b/
 /skein-integration/
 
 # Local agent/session + env files
