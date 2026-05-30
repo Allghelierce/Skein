@@ -478,7 +478,7 @@ const edgeTypes = { data: DataEdge };
 
 // Keep the swarm in the clear band between the floating glass rails (~300px each
 // side) and above the bottom telemetry dock, so drones are never hidden behind UI.
-const FIT_PADDING = { top: "56px", right: "330px", bottom: "120px", left: "330px" } as const;
+const FIT_PADDING = { top: "56px", right: "300px", bottom: "120px", left: "300px" } as const;
 
 /* Topographic terrain: hillshaded relief (diffuse lighting on a procedural
    height field) for real depth, plus thin iso-contour lines on top. Two stacked,

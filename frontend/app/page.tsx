@@ -63,14 +63,14 @@ export default function Page() {
 
         {/* left rail — detection + reasoning. The ML Detector carries the Model
             Report launcher (⤢), which opens the full report popout. */}
-        <aside className="gotham-rail scroll-thin absolute bottom-3 left-3 top-14 z-10 flex w-[300px] flex-col gap-3 overflow-y-auto">
+        <aside className="gotham-rail scroll-thin absolute bottom-3 left-3 top-14 z-10 flex w-[280px] flex-col gap-3 overflow-y-auto">
           <DetectorPanel state={state} onOpenReport={() => setReportOpen(true)} />
           <WhyFlagged state={state} />
         </aside>
 
         {/* right rail — raw data scope + Lila (AI co-pilot). Capped well above the
             bottom-right so Lila's feed never overlaps the comms-to-base overlay. */}
-        <aside className="gotham-rail absolute bottom-[168px] right-3 top-14 z-10 flex w-[300px] flex-col gap-3">
+        <aside className="gotham-rail absolute bottom-[168px] right-3 top-14 z-10 flex w-[280px] flex-col gap-3">
           <div className="h-[230px] shrink-0">
             <RawDataScope state={state} />
           </div>
@@ -80,7 +80,7 @@ export default function Page() {
         </aside>
 
         {/* bottom-right — tray-less comms-to-base readout (was the top ribbon) */}
-        <div className="absolute bottom-3 right-4 z-20 w-[300px]">
+        <div className="absolute bottom-3 right-4 z-20 w-[280px]">
           <CommsReadout analysis={analysis} />
         </div>
 
