@@ -17,3 +17,10 @@ A 1.5-day SOLO defense-hackathon project for the **Bow Capital x Firestorm** hac
 - **Never attack systems you don't own.** Targets are local/sandboxed only.
 - **No over-scoping** — no Kubernetes, Istio, two-laptop networking, or deep-learning rabbit holes. Solo, 1.5 days.
 - **Don't bolt on data as decoration** — the ML must be the substance, not a checkbox.
+
+## Commit & branch conventions (ALL contributors, human or agent)
+- Commit messages are **all lowercase**, unless uppercase is needed to clarify or represent something (e.g. `CIC`, `WebSocket`, a class name).
+- Messages contain ONLY a plain description. **No `Co-Authored-By` trailer. Never mention Claude, AI, or any assistant** anywhere in a commit.
+- Author identity comes from the contributor's own `git config user.name`/`user.email`.
+- **Commit incrementally** — commit after each logical step in the plan, not one big commit at the end. Small reviewable diffs.
+- **Push to your own branch after committing** (each worktree → its own branch). Do not commit into another worktree's branch.
