@@ -43,3 +43,16 @@ def test_benign_flow_does_not_trigger_callback():
                       lambda f, p: got.append(p))
     cap._run()
     assert got == []
+
+
+def test_bad_flow_does_not_kill_the_capture_thread():
+    # A malformed attacker flow (e.g. a cicflowmeter column-name drift) makes
+    # map_flow raise; that must be logged + skipped, not crash the loop — the
+    # next good flow still gets scored.
+    got = []
+    bad = {"src_ip": "10.0.0.2", "dst_ip": "10.0.0.1"}  # involves attacker, missing feature cols
+    cap = LiveCapture([bad, _flow()], FakeDetector("PortScan"), "10.0.0.2",
+                      lambda f, p: got.append(p))
+    cap._run()
+    assert len(got) == 1 and got[0]["label"] == "PortScan"
+    assert cap.last_error is not None

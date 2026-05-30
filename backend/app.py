@@ -15,15 +15,36 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from live.wiring import maybe_start_live_capture
 from mesh.simulator import Simulator
 
 TICK_SECONDS = 1.0
 
-app = FastAPI(title="Skein Mesh Backend")
+# Single shared world for the demo.
+simulator = Simulator()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start the env-gated live-capture path on boot; stop it on shutdown.
+
+    Using a lifespan handler (not the deprecated @app.on_event) gives a single
+    place to tear the capture thread down so a uvicorn --reload restart doesn't
+    leave an orphaned cicflowmeter subprocess holding the NIC.
+    """
+    app.state.live_capture = maybe_start_live_capture(simulator)
+    yield
+    capture = getattr(app.state, "live_capture", None)
+    if capture is not None:
+        capture.stop()
+
+
+app = FastAPI(title="Skein Mesh Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,17 +53,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Single shared world for the demo.
-simulator = Simulator()
-
-
-from live.wiring import maybe_start_live_capture
-
-
-@app.on_event("startup")
-def _start_live_capture() -> None:
-    app.state.live_capture = maybe_start_live_capture(simulator)
 
 
 @app.get("/")
