@@ -48,16 +48,9 @@ function DecodeText({ text, durationMs = 450 }: { text: string; durationMs?: num
   const len = text.length;
 
   useEffect(() => {
-    const reduce =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const solved = () => text.split("").map((ch) => ({ ch, locked: true, front: false }));
     let raf = 0;
     let start = 0;
-    if (reduce) {
-      raf = requestAnimationFrame(() => setSlots(solved()));
-      return () => cancelAnimationFrame(raf);
-    }
     const rnd = () => DECODE_GLYPHS[Math.floor(Math.random() * DECODE_GLYPHS.length)];
     const step = (now: number) => {
       if (!start) start = now;
