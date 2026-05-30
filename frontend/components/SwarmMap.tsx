@@ -532,6 +532,122 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
+/* ── Hover tooltip ──────────────────────────────────────────────────────────
+   Ephemeral card that follows the cursor. Drone → status / risk / live traffic;
+   link → verdict / confidence / the raw features driving it. Reads straight off
+   the live state so the numbers are always the ones the detector just scored. */
+type Hover = { kind: "node" | "link"; id: string; x: number; y: number };
+
+function fmtNum(v: number): string {
+  if (!isFinite(v)) return "—";
+  const a = Math.abs(v);
+  if (a >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+  if (a >= 1e3) return `${(v / 1e3).toFixed(1)}k`;
+  if (a >= 100) return v.toFixed(0);
+  if (a >= 1) return v.toFixed(1);
+  return v.toFixed(2);
+}
+
+function prettyFeature(key: string): string {
+  return key.replace(/_/g, " ").replace(/\bs\b/, "/s");
+}
+
+function riskColor(risk: number): string {
+  return risk >= 0.55 ? HEX.red : risk >= 0.18 ? HEX.amber : HEX.dim;
+}
+
+function HoverTip({
+  hover,
+  state,
+  riskMap,
+}: {
+  hover: Hover | null;
+  state: StateMessage | null;
+  riskMap: Map<string, number>;
+}) {
+  if (!hover || !state) return null;
+
+  // place the card near the cursor, flipping to stay inside the viewport
+  const flipX = typeof window !== "undefined" && hover.x > window.innerWidth - 260;
+  const flipY = typeof window !== "undefined" && hover.y > window.innerHeight - 180;
+  const style: React.CSSProperties = {
+    position: "fixed",
+    left: hover.x + (flipX ? -16 : 16),
+    top: hover.y + (flipY ? -12 : 16),
+    transform: `translate(${flipX ? "-100%" : "0"}, ${flipY ? "-100%" : "0"})`,
+    zIndex: 50,
+  };
+
+  let title = "";
+  let badge = "";
+  let badgeColor: string = HEX.ink;
+  const rows: { label: string; value: string; color?: string }[] = [];
+
+  if (hover.kind === "link") {
+    const link = state.links.find((l) => l.id === hover.id);
+    if (!link) return null;
+    const attack = !!link.prediction.attack_type;
+    title = `Link ${link.source}–${link.target}`;
+    badge = link.status;
+    badgeColor =
+      link.status === "jammed" ? HEX.red : link.status === "rerouted" ? HEX.green : HEX.dim;
+    rows.push({
+      label: "Verdict",
+      value: link.prediction.label,
+      color: attack ? HEX.red : HEX.green,
+    });
+    rows.push({ label: "Confidence", value: `${Math.round(link.prediction.confidence * 100)}%` });
+    // a few raw features — the ones the detector leaned on, else key flow stats
+    const feats = link.features ?? {};
+    const keys = (link.reasons ?? []).map((r) => r.feature).filter((k) => k in feats);
+    const shown = (keys.length ? keys : ["flow_packets_s", "total_fwd_packets", "flow_bytes_s"]).slice(0, 3);
+    for (const k of shown) {
+      if (k in feats) rows.push({ label: prettyFeature(k), value: fmtNum(feats[k]) });
+    }
+  } else {
+    const node = state.nodes.find((n) => n.id === hover.id);
+    if (!node) return null;
+    const incident = state.links.filter((l) => l.source === node.id || l.target === node.id);
+    const jammed = incident.filter((l) => l.status === "jammed").length;
+    const live = incident.filter((l) => l.active).length;
+    const risk = riskMap.get(node.id) ?? 0;
+    title = `Drone ${node.id}`;
+    badge = node.status;
+    badgeColor =
+      node.status === "attacked" ? HEX.red : node.status === "defending" ? HEX.green : HEX.dim;
+    rows.push({ label: "Risk", value: `${Math.round(risk * 100)}%`, color: riskColor(risk) });
+    rows.push({ label: "Live traffic", value: `${live}/${incident.length} links` });
+    if (jammed > 0) rows.push({ label: "Under attack", value: `${jammed} link${jammed > 1 ? "s" : ""}`, color: HEX.red });
+  }
+
+  return (
+    <div
+      className="pointer-events-none w-[220px] rounded-lg border border-line bg-panel/95 p-2.5 shadow-xl backdrop-blur"
+      style={style}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-ink">{title}</span>
+        <span
+          className="rounded px-1.5 py-0.5 text-[0.55rem] font-medium capitalize"
+          style={{ color: badgeColor, border: `1px solid ${badgeColor}44` }}
+        >
+          {badge}
+        </span>
+      </div>
+      <div className="mono mt-2 space-y-1">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-center justify-between gap-3">
+            <span className="label-xs normal-case tracking-normal">{r.label}</span>
+            <span className="text-[0.7rem] tabular-nums" style={{ color: r.color ?? HEX.ink }}>
+              {r.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   state: StateMessage | null;
   selected: Selection;
@@ -615,6 +731,23 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
   );
   const onPaneClick = useCallback(() => onSelect(null), [onSelect]);
 
+  // hover tooltips — follow the cursor while over a drone or link
+  const [hover, setHover] = useState<Hover | null>(null);
+  const onNodeEnter = useCallback<NodeMouseHandler>(
+    (e, node) => setHover({ kind: "node", id: node.id, x: e.clientX, y: e.clientY }),
+    [],
+  );
+  const onEdgeEnter = useCallback<EdgeMouseHandler<DataEdge>>(
+    (e, edge) => setHover({ kind: "link", id: edge.id, x: e.clientX, y: e.clientY }),
+    [],
+  );
+  const clearHover = useCallback(() => setHover(null), []);
+  const onHoverMove = useCallback(
+    (e: React.MouseEvent) =>
+      setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h)),
+    [],
+  );
+
   return (
     <HudFrame className="relative min-h-0 flex-1 overflow-hidden">
       <div className="pointer-events-none absolute left-4 top-3 z-20 panel-title">Swarm Map</div>
@@ -627,7 +760,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
 
       <MapField />
 
-      <div className="absolute inset-0 z-10">
+      <div className="absolute inset-0 z-10" onMouseMove={onHoverMove} onMouseLeave={clearHover}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -636,6 +769,10 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           onNodeClick={onNodeClick}
           onEdgeClick={onEdgeClick}
           onPaneClick={onPaneClick}
+          onNodeMouseEnter={onNodeEnter}
+          onNodeMouseLeave={clearHover}
+          onEdgeMouseEnter={onEdgeEnter}
+          onEdgeMouseLeave={clearHover}
           fitView
           fitViewOptions={{ padding: 0.16 }}
           nodesDraggable={false}
@@ -650,6 +787,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
       </div>
 
       <DetailCard state={state} selected={selected} />
+      <HoverTip hover={hover} state={state} riskMap={riskMap} />
     </HudFrame>
   );
 }
