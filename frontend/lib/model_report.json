@@ -1,0 +1,135 @@
+{
+  "best_model": "XGBoost",
+  "n_test": 22656,
+  "accuracy": 0.9922,
+  "macro_f1": 0.9897,
+  "macro_precision": 0.9896,
+  "macro_recall": 0.9898,
+  "labels": [
+    "BENIGN",
+    "DoS",
+    "PortScan",
+    "BruteForce"
+  ],
+  "confusion_matrix": [
+    [
+      9913,
+      1,
+      1,
+      85
+    ],
+    [
+      1,
+      4999,
+      0,
+      0
+    ],
+    [
+      4,
+      0,
+      4994,
+      2
+    ],
+    [
+      82,
+      0,
+      0,
+      2574
+    ]
+  ],
+  "per_class": [
+    {
+      "label": "BENIGN",
+      "precision": 0.9913,
+      "recall": 0.9913,
+      "f1": 0.9913,
+      "support": 10000
+    },
+    {
+      "label": "DoS",
+      "precision": 0.9998,
+      "recall": 0.9998,
+      "f1": 0.9998,
+      "support": 5000
+    },
+    {
+      "label": "PortScan",
+      "precision": 0.9998,
+      "recall": 0.9988,
+      "f1": 0.9993,
+      "support": 5000
+    },
+    {
+      "label": "BruteForce",
+      "precision": 0.9673,
+      "recall": 0.9691,
+      "f1": 0.9682,
+      "support": 2656
+    }
+  ],
+  "feature_importance": [
+    {
+      "feature": "fwd_pkt_len_mean",
+      "value": 0.31906
+    },
+    {
+      "feature": "bwd_pkt_len_mean",
+      "value": 0.23132
+    },
+    {
+      "feature": "total_bwd_packets",
+      "value": 0.19954
+    },
+    {
+      "feature": "avg_pkt_size",
+      "value": 0.12112
+    },
+    {
+      "feature": "flow_bytes_s",
+      "value": 0.04871
+    },
+    {
+      "feature": "total_fwd_packets",
+      "value": 0.04642
+    },
+    {
+      "feature": "pkt_len_mean",
+      "value": 0.03011
+    },
+    {
+      "feature": "flow_iat_mean",
+      "value": 0.00142
+    },
+    {
+      "feature": "flow_duration",
+      "value": 0.00122
+    },
+    {
+      "feature": "flow_packets_s",
+      "value": 0.00108
+    }
+  ],
+  "comparison": [
+    {
+      "model": "LogisticRegression",
+      "accuracy": 0.87451447740113,
+      "precision_macro": 0.8657664478420811,
+      "recall_macro": 0.8610960843373494,
+      "f1_macro": 0.8548983364906035
+    },
+    {
+      "model": "RandomForest",
+      "accuracy": 0.9896716101694916,
+      "precision_macro": 0.9860841234952902,
+      "recall_macro": 0.9864402108433735,
+      "f1_macro": 0.9862617069271582
+    },
+    {
+      "model": "XGBoost",
+      "accuracy": 0.992231638418079,
+      "precision_macro": 0.9895513310097019,
+      "recall_macro": 0.9897566265060241,
+      "f1_macro": 0.9896537021872795
+    }
+  ]
+}

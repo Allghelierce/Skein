@@ -5,8 +5,11 @@ import { motion } from "framer-motion";
 import type { StateMessage, SwarmLink } from "@/lib/types";
 import { HEX } from "@/lib/palette";
 import { HudFrame } from "@/components/Hud";
+import { MODEL_REPORT } from "@/lib/modelReport";
 
-const MODEL_NAME = "RandomForest"; // replaced by real best-model name in live mode
+// real winning model + its held-out accuracy (from backend/ml/report.py)
+const MODEL_NAME = MODEL_REPORT.best_model;
+const MODEL_ACC = MODEL_REPORT.accuracy;
 
 interface Props {
   state: StateMessage | null;
@@ -35,8 +38,8 @@ export function DetectorPanel({ state }: Props) {
       title="ML Detector"
       right={
         <span className="flex items-center gap-1.5 text-[0.68rem] text-ink-dim">
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.dim }} />
-          {MODEL_NAME}
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.green }} />
+          {MODEL_NAME} · {(MODEL_ACC * 100).toFixed(1)}%
         </span>
       }
     >
