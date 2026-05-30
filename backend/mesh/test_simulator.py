@@ -21,7 +21,7 @@ def test_tick_returns_state_message_shape():
         assert n["status"] in ("healthy", "attacked", "defending")
     # links
     for l in state["links"]:
-        assert set(l) == {"id", "source", "target", "status", "active", "prediction"}
+        assert set(l) == {"id", "source", "target", "status", "active", "prediction", "features"}
         assert l["status"] in ("healthy", "jammed", "rerouted", "down")
         pred = l["prediction"]
         assert set(pred) == {"label", "attack_type", "confidence"}
