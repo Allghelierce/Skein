@@ -8,12 +8,12 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @theme {
-  --color-bg: #050506;
-  --color-bg-soft: #0a0a0c;
-  --color-panel: #0c0c0f;
-  --color-panel-2: #101013;
-  --color-line: #1e1e22;
-  --color-line-soft: #161619;
+  --color-bg: #000000;
+  --color-bg-soft: #050507;
+  --color-panel: #08080b;
+  --color-panel-2: #0d0d11;
+  --color-line: #1d1d22;
+  --color-line-soft: #141417;
   --color-ink: #ededf0;
   --color-ink-dim: #8a8a93;
   --color-ink-faint: #55555e;
