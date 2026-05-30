@@ -134,6 +134,16 @@ body {
   will-change: transform;
 }
 
+/* airspeed wake — particles shed downward behind each drone (forward flight is
+   up-screen, so the wake trails down), reinforcing that the swarm is travelling
+   over the moving terrain rather than hovering in place. */
+@keyframes drone-wake {
+  0%   { transform: translateY(0); opacity: 0; }
+  18%  { opacity: 0.6; }
+  100% { transform: translateY(13px); opacity: 0; }
+}
+.drone-wake-dot { animation: drone-wake 0.9s linear infinite; will-change: transform; }
+
 /* idle drift — drones hold formation while flying: a gentle bob plus a tiny
    side-to-side sway so the swarm feels alive and airborne, not pinned. */
 @keyframes drone-hover {
@@ -176,7 +186,8 @@ body {
   .animate-skein-pulse,
   .shockwave,
   .edge-snap,
-  .risk-pulse {
+  .risk-pulse,
+  .drone-wake-dot {
     animation: none !important;
   }
 }
