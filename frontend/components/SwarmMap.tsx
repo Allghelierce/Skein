@@ -517,7 +517,7 @@ function MapField() {
               in="height"
               surfaceScale="7"
               diffuseConstant="1"
-              lightingColor="#223347"
+              lightingColor="#3a3a40"
               result="relief"
             >
               <feDistantLight azimuth="235" elevation="44" />
@@ -547,7 +547,7 @@ function MapField() {
               values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 1 1 0 0"
               result="lineAlpha"
             />
-            <feFlood floodColor="#4d7da3" result="line" />
+            <feFlood floodColor="#63636b" result="line" />
             <feComposite in="line" in2="lineAlpha" operator="in" result="lines" />
             <feComponentTransfer in="relief" result="reliefDim">
               <feFuncA type="linear" slope="0.85" />
@@ -571,7 +571,7 @@ function MapField() {
         className="grid-scroll absolute inset-0"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(77,125,163,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(77,125,163,0.12) 1px, transparent 1px)",
+            "linear-gradient(rgba(140,140,150,0.16) 1px, transparent 1px), linear-gradient(90deg, rgba(140,140,150,0.09) 1px, transparent 1px)",
           backgroundSize: "78px 78px",
         }}
       />
