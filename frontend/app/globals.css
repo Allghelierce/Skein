@@ -180,3 +180,26 @@ body {
 /* React Flow surface */
 .react-flow__attribution { display: none; }
 .react-flow__edge-path { transition: stroke 0.4s ease; }
+
+/* ── Boot screen — brief militaristic bring-up ───────────────────────────── */
+@keyframes boot-fade { to { opacity: 0; visibility: hidden; } }
+.boot-out { animation: boot-fade 0.5s ease-out forwards; }
+
+@keyframes boot-title {
+  from { opacity: 0; letter-spacing: 0.7em; filter: blur(10px); }
+  to   { opacity: 1; letter-spacing: 0.34em; filter: blur(0); }
+}
+.boot-title { animation: boot-title 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@keyframes boot-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.boot-bar { transform-origin: left; animation: boot-bar var(--boot-dur, 2s) linear forwards; }
+
+@keyframes boot-line {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.boot-line { animation: boot-line 0.22s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-title, .boot-bar, .boot-line, .boot-out { animation-duration: 0.01s; }
+}

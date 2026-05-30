@@ -8,6 +8,7 @@
 
 import { useMemo } from "react";
 import { AttackControls } from "@/components/AttackControls";
+import { BootScreen } from "@/components/BootScreen";
 import { DetectorPanel } from "@/components/DetectorPanel";
 import { EventFeed } from "@/components/EventFeed";
 import { LiveStatsBar } from "@/components/LiveStatsBar";
@@ -27,6 +28,7 @@ export default function Page() {
 
   return (
     <div className="relative z-10 flex h-screen flex-col">
+      <BootScreen />
       <StatusBar state={state} connected={connected} mode={mode} />
       <MissionStatus analysis={analysis} />
 
