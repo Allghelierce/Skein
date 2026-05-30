@@ -25,6 +25,7 @@ import {
   type NodeMouseHandler,
   type NodeProps,
   type OnNodesChange,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { motion } from "framer-motion";
@@ -787,6 +788,43 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
     prevStatus.current = next;
   }, [state?.links]);
 
+  // auto-focus the action: when a fresh attack lands, glide the camera onto it
+  // so attention goes where it matters; when the swarm is clean again, re-frame
+  // the whole formation. Never fights an in-progress drag.
+  const rfRef = useRef<ReactFlowInstance<DroneNode, DataEdge> | null>(null);
+  const prevJammed = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const rf = rfRef.current;
+    const links = state?.links ?? [];
+    const jammed = new Set(links.filter((l) => l.status === "jammed").map((l) => l.id));
+    const fresh = [...jammed].filter((id) => !prevJammed.current.has(id));
+    const cleared = prevJammed.current.size > 0 && jammed.size === 0;
+    prevJammed.current = jammed;
+    if (!rf || draggingRef.current) return;
+
+    if (fresh.length > 0) {
+      // centroid of the newly-hit links' endpoints (respecting any manual drag)
+      const pos = (id: string) => {
+        const ov = posOverride.get(id);
+        if (ov) return ov;
+        const n = state?.nodes.find((m) => m.id === id);
+        return n ? { x: n.x * CANVAS_W, y: n.y * CANVAS_H } : null;
+      };
+      let sx = 0, sy = 0, k = 0;
+      for (const id of fresh) {
+        const l = links.find((m) => m.id === id);
+        if (!l) continue;
+        for (const end of [l.source, l.target]) {
+          const p = pos(end);
+          if (p) { sx += p.x; sy += p.y; k++; }
+        }
+      }
+      if (k > 0) rf.setCenter(sx / k, sy / k, { zoom: 1.15, duration: 600 });
+    } else if (cleared) {
+      rf.fitView({ padding: 0.16, duration: 700 });
+    }
+  }, [state?.links, state?.nodes, posOverride]);
+
   const onNodeClick = useCallback<NodeMouseHandler>(
     (_e, node) => onSelect({ kind: "node", id: node.id }),
     [onSelect],
@@ -832,6 +870,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          onInit={(inst) => { rfRef.current = inst; }}
           onNodesChange={onNodesChange}
           onNodeClick={onNodeClick}
           onEdgeClick={onEdgeClick}
