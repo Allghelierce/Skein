@@ -17,10 +17,11 @@ from __future__ import annotations
 
 import csv
 import random
+import time
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from ml.schema import (
     ACTION_TO_ATTACK,
@@ -41,6 +42,19 @@ _EVENT_BUFFER = 20
 # Sentinel attack_type for a stealth attack: samples real attack flows that most
 # resemble benign traffic, so the detector struggles to flag them.
 STEALTH = "stealth"
+
+# A host node whose heartbeats lapse for longer than this is declared down, and
+# the swarm reroutes around it. ~4s tolerates a couple of dropped beats (the
+# attacker sends one per second) while still healing visibly on a real kill.
+HEARTBEAT_TIMEOUT_SECONDS = 4.0
+
+# Where external host nodes land when they join. Laptop 2 ("ATK") sits at the
+# bottom-right edge, linked to two real drones so its loss is always survivable
+# (the swarm heals around it rather than partitioning).
+HOST_NODE_SPECS: dict[str, dict] = {
+    "ATK": {"x": 0.95, "y": 0.78, "neighbours": ["D4", "D5"]},
+}
+_DEFAULT_HOST_SPEC = {"x": 0.95, "y": 0.90, "neighbours": ["D5", "D6"]}
 
 
 def _now() -> str:
@@ -112,12 +126,24 @@ class FakeDetector:
 
 
 class Simulator:
-    def __init__(self, csv_path: Optional[Path] = None, seed: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        csv_path: Optional[Path] = None,
+        seed: Optional[int] = None,
+        clock: Optional[Callable[[], float]] = None,
+    ) -> None:
         self.graph = SwarmGraph()
         self.tick_count = 0
         self._rng = random.Random(seed)
+        # Monotonic clock for heartbeat liveness; injectable so tests are
+        # deterministic (no real sleeping). Defaults to wall-clock monotonic.
+        self._clock = clock or time.monotonic
         self._events: deque[dict] = deque(maxlen=_EVENT_BUFFER)
         self.hacked_nodes: set[str] = set()
+        # Externally-hosted nodes (e.g. laptop 2 as "ATK") and their liveness.
+        self.host_nodes: set[str] = set()
+        self.heartbeats: dict[str, float] = {}  # node_id -> last-seen clock time
+        self.down_nodes: set[str] = set()  # host nodes whose heartbeats lapsed
         self._announced_detections: set[str] = set()
         self._announced_reroutes: set[str] = set()
         self._announced_isolated: set[str] = set()
@@ -255,16 +281,53 @@ class Simulator:
             self._announced_isolated.clear()
             self._emit("recovery", "All systems restored — swarm healthy")
 
+    # --- host-node heartbeats (laptop 2 as a real, killable node) ----------
+    def heartbeat(self, node_id: str) -> None:
+        """Record a liveness beat from an externally-hosted node.
+
+        First beat registers the node into the mesh; a beat from a node that had
+        gone dark brings it back. The actual down/heal decision happens in
+        tick() so it stays in step with the rest of the world.
+        """
+        if node_id not in self.host_nodes:
+            self._register_host_node(node_id)
+        self.heartbeats[node_id] = self._clock()
+        if node_id in self.down_nodes:
+            self.down_nodes.discard(node_id)
+            self._emit("recovery", f"Host node {node_id} reconnected — rejoining mesh")
+
+    def _register_host_node(self, node_id: str) -> None:
+        spec = HOST_NODE_SPECS.get(node_id, _DEFAULT_HOST_SPEC)
+        self.graph.add_node(node_id, spec["x"], spec["y"], spec["neighbours"])
+        self.host_nodes.add(node_id)
+        self._emit("info", f"Host node {node_id} joined the mesh (laptop online)")
+
+    def _expire_stale_heartbeats(self) -> set[str]:
+        """Mark any host node whose heartbeat lapsed as down; return all down."""
+        now = self._clock()
+        for node_id in self.host_nodes:
+            last = self.heartbeats.get(node_id)
+            if last is None or node_id in self.down_nodes:
+                continue
+            if now - last > HEARTBEAT_TIMEOUT_SECONDS:
+                self.down_nodes.add(node_id)
+                self._emit("detection", f"Host node {node_id} went dark — heartbeat lost")
+        return self.down_nodes
+
     # --- the tick loop -----------------------------------------------------
     def tick(self) -> dict:
         self.tick_count += 1
         jammed_count = 0
         hacked = self.hacked_nodes
-        # Links severed by quarantine: any link touching a hacked drone is cut.
+        # Host nodes whose heartbeats lapsed (laptop killed/offline) are treated
+        # as removed from the mesh, exactly like a quarantined drone.
+        down = self._expire_stale_heartbeats()
+        removed = hacked | down
+        # Links severed: any link touching a removed (hacked OR dark) node is cut.
         severed = {
             l.id
             for l in self.graph.links
-            if l.source in hacked or l.target in hacked
+            if l.source in removed or l.target in removed
         }
 
         # 1. Sample + score live links; quarantined links are severed (down).
@@ -311,7 +374,7 @@ class Simulator:
                 continue
             live_reroute_keys.add(link.id)
             path = shortest_path(
-                self.graph, link.source, link.target, avoid=dead, avoid_nodes=hacked
+                self.graph, link.source, link.target, avoid=dead, avoid_nodes=removed
             )
             if path and len(path) > 1:
                 for a, b in zip(path, path[1:]):
@@ -324,22 +387,24 @@ class Simulator:
                 self._emit("info", f"No path around {link.id} — endpoints partitioned")
                 self._announced_reroutes.add(link.id)
 
-        # 2b. Quarantine healing: restore the connectivity each hacked drone used
-        #     to provide by routing its former neighbours to one another around it.
-        for h in hacked:
-            key = f"quarantine:{h}"
+        # 2b. Heal around each removed node — a quarantined (hacked) drone or a
+        #     host node gone dark — by routing its former neighbours to one
+        #     another around it. Same mechanism, different wording per cause.
+        for h in removed:
+            is_dark = h in down
+            key = f"{'down' if is_dark else 'quarantine'}:{h}"
             live_reroute_keys.add(key)
             neighbours = [
                 (l.target if l.source == h else l.source)
                 for l in self.graph.links_incident_to(h)
             ]
-            neighbours = [n for n in neighbours if n not in hacked]
+            neighbours = [n for n in neighbours if n not in removed]
             healed = False
             for i in range(len(neighbours)):
                 for j in range(i + 1, len(neighbours)):
                     path = shortest_path(
                         self.graph, neighbours[i], neighbours[j],
-                        avoid=dead, avoid_nodes=hacked,
+                        avoid=dead, avoid_nodes=removed,
                     )
                     if path and len(path) > 1:
                         for a, b in zip(path, path[1:]):
@@ -347,23 +412,31 @@ class Simulator:
                         defending_nodes.update(path)
                         healed = True
             if key not in self._announced_reroutes:
-                msg = (
-                    f"Quarantined {h} — swarm rerouting around it"
-                    if healed
-                    else f"Quarantined {h} — no detour available"
-                )
+                if is_dark:
+                    msg = (
+                        f"{h} went dark — swarm rerouting around it"
+                        if healed
+                        else f"{h} went dark — no detour available"
+                    )
+                else:
+                    msg = (
+                        f"Quarantined {h} — swarm rerouting around it"
+                        if healed
+                        else f"Quarantined {h} — no detour available"
+                    )
                 self._emit("reroute" if healed else "info", msg)
                 self._announced_reroutes.add(key)
 
         # Forget reroute announcements for threats that have cleared.
         self._announced_reroutes &= live_reroute_keys
 
-        # 2c. Isolation: any non-hacked drone cut off from the main swarm.
-        comps = components(self.graph, avoid=dead, avoid_nodes=hacked)
+        # 2c. Isolation: any still-present drone cut off from the main swarm.
+        #     Removed nodes (hacked or dark) are intentionally gone, not isolated.
+        comps = components(self.graph, avoid=dead, avoid_nodes=removed)
         main = comps[0] if comps else set()
         isolated = {
             n.id for n in self.graph.nodes
-            if n.id not in hacked and n.id not in main
+            if n.id not in removed and n.id not in main
         }
         for node_id in isolated:
             if node_id not in self._announced_isolated:
@@ -380,10 +453,12 @@ class Simulator:
                 link.status = "rerouted"
                 link.active = True
 
-        # 3. Node statuses: hacked(attacked) > isolated > defending > healthy.
+        # 3. Node statuses: hacked(attacked) > dark(down) > isolated > defending.
         for node in self.graph.nodes:
             if node.id in hacked:
                 node.status = "attacked"
+            elif node.id in down:
+                node.status = "down"
             elif node.id in isolated:
                 node.status = "isolated"
             elif node.id in defending_nodes:

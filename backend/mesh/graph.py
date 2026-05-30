@@ -109,6 +109,35 @@ class SwarmGraph:
     def links_incident_to(self, node_id: str) -> list[Link]:
         return [l for l in self.links if node_id in (l.source, l.target)]
 
+    # --- dynamic membership (host nodes hosted by another laptop) -----------
+    def add_node(
+        self, node_id: str, x: float, y: float, neighbours: list[str]
+    ) -> Node:
+        """Add a node and link it to existing neighbours (idempotent).
+
+        Used when laptop 2 checks in over the WS and joins the mesh as a real,
+        killable node. Unknown neighbours are skipped; duplicate links are not
+        re-created, so repeated heartbeats are safe.
+        """
+        existing = self._nodes_by_id.get(node_id)
+        if existing is not None:
+            return existing
+
+        node = Node(id=node_id, x=x, y=y)
+        self.nodes.append(node)
+        self._nodes_by_id[node_id] = node
+        for nb in neighbours:
+            if nb == node_id or nb not in self._nodes_by_id:
+                continue
+            lid = canonical_link_id(node_id, nb)
+            if lid in self._links_by_id:
+                continue
+            lo, hi = sorted((node_id, nb))
+            link = Link(id=lid, source=lo, target=hi)
+            self.links.append(link)
+            self._links_by_id[lid] = link
+        return node
+
     def some_adjacent_pair(self) -> tuple[str, str]:
         """Return two directly-linked node ids (used by tests/helpers)."""
         first = self.links[0]

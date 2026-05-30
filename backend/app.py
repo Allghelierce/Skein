@@ -1,10 +1,14 @@
 """Skein backend — FastAPI WebSocket server.
 
 Streams full swarm state to the command-center frontend every tick (~1s) and
-accepts attack/reset commands. One Simulator instance is shared across clients
-so every connected screen sees the same world (handy for the demo).
+accepts attack/reset commands plus host-node heartbeats. One Simulator instance
+is shared across clients so every connected screen sees the same world (the
+defender dashboard on laptop 1 and the attacker console on laptop 2).
 
-Run:  uvicorn app:app --reload --port 8000
+Run (local only):       uvicorn app:app --reload --port 8000
+Run (LAN / two laptops): uvicorn app:app --host 0.0.0.0 --port 8000
+  Binding 0.0.0.0 lets laptop 2 reach this server over the phone hotspot at
+  ws://<laptop1-ip>:8000/ws. Find <laptop1-ip> with `ipconfig getifaddr en0`.
 """
 
 from __future__ import annotations
@@ -58,11 +62,18 @@ async def _receive(ws: WebSocket) -> None:
     with contextlib.suppress(WebSocketDisconnect):
         while True:
             msg = await ws.receive_json()
-            if msg.get("type") == "command":
+            mtype = msg.get("type")
+            if mtype == "command":
                 action = msg.get("action")
                 target = msg.get("target")
                 if action in ("jam", "stealth", "hack", "reset"):
                     simulator.command(action, target)
+            elif mtype == "heartbeat":
+                # Laptop 2 claiming a host node (e.g. "ATK"); liveness drives the
+                # killable-node demo. Ignore beats without a node id.
+                node = msg.get("node")
+                if isinstance(node, str) and node:
+                    simulator.heartbeat(node)
 
 
 @app.websocket("/ws")
