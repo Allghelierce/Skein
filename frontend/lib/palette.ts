@@ -1,55 +1,39 @@
 // frontend/lib/palette.ts
-// Shared color + label mapping so the map, panels, and feed stay consistent.
+// Two-color tactical scheme: neon green = healthy / healing, neon red = hostile.
+// Shared by the map, panels, and feed so everything stays consistent.
 
 import type { LinkStatus, NodeStatus, ThreatLevel } from "./types";
 
 export const HEX = {
-  healthy: "#22c55e",
-  attacked: "#ef4444",
-  rerouted: "#3b82f6",
-  defending: "#38bdf8",
-  elevated: "#f59e0b",
-  dim: "#7e93ab",
+  green: "#29ff8c",
+  red: "#ff2d46",
+  dim: "#5f7f96",
+  faint: "#34505f",
 } as const;
 
 export function nodeColor(status: NodeStatus): string {
-  switch (status) {
-    case "attacked":
-      return HEX.attacked;
-    case "defending":
-      return HEX.defending;
-    default:
-      return HEX.healthy;
-  }
+  return status === "attacked" ? HEX.red : HEX.green;
 }
 
 export function linkColor(status: LinkStatus): string {
   switch (status) {
     case "jammed":
-      return HEX.attacked;
-    case "rerouted":
-      return HEX.rerouted;
+      return HEX.red;
     case "down":
       return HEX.dim;
     default:
-      return HEX.healthy;
+      // healthy + rerouted are both green (rerouted is distinguished by motion/glow)
+      return HEX.green;
   }
 }
 
 export function threatColor(level: ThreatLevel): string {
-  switch (level) {
-    case "CRITICAL":
-      return HEX.attacked;
-    case "ELEVATED":
-      return HEX.elevated;
-    default:
-      return HEX.healthy;
-  }
+  return level === "NOMINAL" ? HEX.green : HEX.red;
 }
 
 export const EVENT_COLOR: Record<string, string> = {
-  detection: HEX.attacked,
-  reroute: HEX.rerouted,
-  recovery: HEX.healthy,
+  detection: HEX.red,
+  reroute: HEX.green,
+  recovery: HEX.green,
   info: HEX.dim,
 };

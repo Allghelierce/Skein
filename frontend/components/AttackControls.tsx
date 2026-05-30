@@ -1,7 +1,6 @@
 // frontend/components/AttackControls.tsx
-// The judge's hands-on levers. Select a link then Jam it, select a node then
-// Hack it, or Reset everything. Each click sends a real CommandMessage upstream
-// (to the mock engine or the live backend) — the map reacts to the result.
+// Judge levers. Select a link → Jam, select a node → Hack, or Reset. Each click
+// sends a real CommandMessage; the map reacts to the result.
 "use client";
 
 import type { CommandMessage } from "@/lib/types";
@@ -19,80 +18,60 @@ export function AttackControls({ selected, send }: Props) {
 
   const selectionLabel =
     selected?.kind === "link"
-      ? `link ${selected.id}`
+      ? `LINK ${selected.id}`
       : selected?.kind === "node"
-        ? `drone ${selected.id}`
-        : "nothing selected";
+        ? `DRONE ${selected.id}`
+        : "NONE";
 
   return (
-    <footer className="relative z-10 flex flex-wrap items-center justify-between gap-3 panel rounded-none border-x-0 border-b-0 px-5 py-3">
+    <footer className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-panel px-5 py-2.5">
       <div className="flex items-center gap-3">
         <span className="panel-title">Attack Controls</span>
-        <span className="rounded border border-border bg-bg-soft px-2 py-1 text-xs text-ink-dim">
-          target:{" "}
-          <span className="font-bold text-ink">{selectionLabel}</span>
+        <span className="flex items-center gap-2 border border-line-soft bg-bg-soft px-2.5 py-1">
+          <span className="panel-title text-[0.5rem]">Target</span>
+          <span
+            className="font-display text-[0.72rem] font-bold tracking-wider"
+            style={{ color: selected ? HEX.green : HEX.dim }}
+          >
+            {selectionLabel}
+          </span>
         </span>
-        <span className="hidden text-[0.65rem] text-ink-faint lg:inline">
-          click a link or drone on the map, then act
+        <span className="hidden font-display text-[0.55rem] tracking-[0.18em] text-ink-faint lg:inline">
+          SELECT A UNIT ON THE PLOT, THEN ACT
         </span>
       </div>
 
-      <div className="flex items-center gap-2">
-        <ActionButton
-          color={HEX.attacked}
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          className="tac-btn"
+          style={{ color: HEX.red, borderColor: `${HEX.red}66` }}
           disabled={!linkId}
           onClick={() => linkId && send({ type: "command", action: "jam", target: linkId })}
           title="Simulate RF jamming on the selected link"
         >
-          ⚡ Jam Link
-        </ActionButton>
-        <ActionButton
-          color={HEX.elevated}
+          Jam Link
+        </button>
+        <button
+          type="button"
+          className="tac-btn"
+          style={{ color: HEX.red, borderColor: `${HEX.red}66` }}
           disabled={!nodeId}
           onClick={() => nodeId && send({ type: "command", action: "hack", target: nodeId })}
           title="Compromise the selected drone"
         >
-          ⚠ Hack Drone
-        </ActionButton>
-        <ActionButton
-          color={HEX.healthy}
+          Hack Drone
+        </button>
+        <button
+          type="button"
+          className="tac-btn"
+          style={{ color: HEX.green, borderColor: `${HEX.green}66` }}
           onClick={() => send({ type: "command", action: "reset", target: null })}
           title="Restore the whole swarm"
         >
-          ↺ Reset
-        </ActionButton>
+          Reset
+        </button>
       </div>
     </footer>
-  );
-}
-
-function ActionButton({
-  color,
-  disabled,
-  onClick,
-  title,
-  children,
-}: {
-  color: string;
-  disabled?: boolean;
-  onClick: () => void;
-  title?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className="rounded-md border px-4 py-2 text-sm font-bold tracking-wide transition-all hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-35"
-      style={{
-        color,
-        borderColor: `${color}66`,
-        background: `${color}14`,
-      }}
-    >
-      {children}
-    </button>
   );
 }
