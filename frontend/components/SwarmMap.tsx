@@ -156,7 +156,6 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
   const offline = data.isolated && !threat;
   const colored = !offline && data.status !== "healthy";
   const color = offline ? HEX.faint : nodeColor(data.status);
-  const ringColor = offline ? HEX.faint : colored ? color : HEX.node;
 
   // spotlight: dim quiet/healthy drones during combat so threats stand out
   const calm = !offline && !colored && !data.selected;
@@ -214,16 +213,16 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
         )}
 
         <motion.div
-          animate={{
-            borderColor: ringColor,
-            boxShadow: colored ? `0 0 16px ${color}55` : "0 0 14px rgba(0,0,0,0.6)",
-            scale: data.selected ? 1.1 : 1,
-          }}
+          animate={{ scale: data.selected ? 1.15 : 1 }}
           transition={{ duration: 0.35 }}
-          className="grid h-[34px] w-[34px] place-items-center rounded-full bg-[#0b0b0e]"
-          style={{ border: `1px ${offline ? "dashed" : "solid"} ${ringColor}` }}
+          className="grid h-[34px] w-[34px] place-items-center"
+          style={{
+            filter: colored
+              ? `drop-shadow(0 0 7px ${color})`
+              : "drop-shadow(0 0 3px rgba(0,0,0,0.8))",
+          }}
         >
-          <DroneGlyph color={glyphColor} />
+          <DroneGlyph color={glyphColor} size={24} />
         </motion.div>
 
         <span
