@@ -452,8 +452,8 @@ function MapField() {
           <filter id="skein-terrain" x="0" y="0" width="100%" height="100%">
             <feTurbulence
               type="fractalNoise"
-              baseFrequency="0.004"
-              numOctaves={5}
+              baseFrequency="0.0055"
+              numOctaves={7}
               seed={11}
               stitchTiles="stitch"
               result="noise"
@@ -466,9 +466,9 @@ function MapField() {
             />
             <feDiffuseLighting
               in="height"
-              surfaceScale="6"
+              surfaceScale="7"
               diffuseConstant="1"
-              lightingColor="#1a6248"
+              lightingColor="#223347"
               result="relief"
             >
               <feDistantLight azimuth="235" elevation="44" />
@@ -480,9 +480,9 @@ function MapField() {
               result="gray"
             />
             <feComponentTransfer in="gray" result="stepped">
-              <feFuncR type="discrete" tableValues="0 .1 .2 .3 .4 .5 .6 .7 .8 .9 1" />
-              <feFuncG type="discrete" tableValues="0 .1 .2 .3 .4 .5 .6 .7 .8 .9 1" />
-              <feFuncB type="discrete" tableValues="0 .1 .2 .3 .4 .5 .6 .7 .8 .9 1" />
+              <feFuncR type="discrete" tableValues="0 .05 .1 .15 .2 .25 .3 .35 .4 .45 .5 .55 .6 .65 .7 .75 .8 .85 .9 .95 1" />
+              <feFuncG type="discrete" tableValues="0 .05 .1 .15 .2 .25 .3 .35 .4 .45 .5 .55 .6 .65 .7 .75 .8 .85 .9 .95 1" />
+              <feFuncB type="discrete" tableValues="0 .05 .1 .15 .2 .25 .3 .35 .4 .45 .5 .55 .6 .65 .7 .75 .8 .85 .9 .95 1" />
             </feComponentTransfer>
             <feConvolveMatrix
               in="stepped"
@@ -498,7 +498,7 @@ function MapField() {
               values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 1 1 0 0"
               result="lineAlpha"
             />
-            <feFlood floodColor="#5affb0" result="line" />
+            <feFlood floodColor="#4d7da3" result="line" />
             <feComposite in="line" in2="lineAlpha" operator="in" result="lines" />
             <feComponentTransfer in="relief" result="reliefDim">
               <feFuncA type="linear" slope="0.55" />
