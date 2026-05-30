@@ -236,6 +236,8 @@ type DataEdge = Edge<DataEdgeData, "data">;
 
 function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEdge>) {
   const [path, labelX, labelY] = getStraightPath({ sourceX, sourceY, targetX, targetY });
+  const mx = (sourceX + targetX) / 2; // break point — where jammed traffic dies
+  const my = (sourceY + targetY) / 2;
   const status = data?.status ?? "healthy";
   const active = data?.active ?? false;
   const selected = data?.selected ?? false;
@@ -297,15 +299,55 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
         }}
       />
 
-      {/* always-on packet */}
-      <circle
-        r={packetR}
-        fill={packetColor}
-        opacity={packetOpacity}
-        style={{ filter: `drop-shadow(0 0 3px ${packetColor})`, transition: "opacity 0.4s ease" }}
-      >
-        <animateMotion dur={dur} repeatCount="indefinite" path={path} />
-      </circle>
+      {/* traffic packets — healthy/rerouted links carry flow across; on a jammed
+          link the packets stream toward the break and DIE there (drop), so the
+          eye reads traffic failing, not just a colour change. */}
+      {jammed ? (
+        <>
+          {!reduced &&
+            [0, -0.45].map((begin, i) => (
+              <circle
+                key={`fail-${i}`}
+                r={2}
+                fill={HEX.red}
+                opacity={0}
+                style={{ filter: `drop-shadow(0 0 3px ${HEX.red})` }}
+              >
+                <animateMotion
+                  dur="0.9s"
+                  begin={`${begin}s`}
+                  repeatCount="indefinite"
+                  path={path}
+                  keyPoints="0;0.5"
+                  keyTimes="0;1"
+                  calcMode="linear"
+                />
+                <animate
+                  attributeName="opacity"
+                  dur="0.9s"
+                  begin={`${begin}s`}
+                  repeatCount="indefinite"
+                  values="0;0.9;0.9;0"
+                  keyTimes="0;0.25;0.8;1"
+                />
+              </circle>
+            ))}
+          {/* the break itself: packets pile up and burst at the jam point */}
+          <circle cx={mx} cy={my} r={2} fill={HEX.red} style={{ filter: `drop-shadow(0 0 4px ${HEX.red})` }}>
+            {!reduced && <animate attributeName="r" values="1.5;3.6;1.5" dur="0.7s" repeatCount="indefinite" />}
+            {!reduced && <animate attributeName="opacity" values="0.5;1;0.5" dur="0.7s" repeatCount="indefinite" />}
+          </circle>
+        </>
+      ) : (
+        <circle
+          r={packetR}
+          fill={packetColor}
+          opacity={packetOpacity}
+          style={{ filter: `drop-shadow(0 0 3px ${packetColor})`, transition: "opacity 0.4s ease" }}
+        >
+          <animateMotion dur={dur} repeatCount="indefinite" path={path} />
+        </circle>
+      )}
 
       {/* heal sweep: bright comet runs the new route once, staggered by hop */}
       {rerouted && !reduced && (
