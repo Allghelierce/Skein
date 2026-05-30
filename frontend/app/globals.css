@@ -130,7 +130,7 @@ body {
   to { transform: translate3d(0, 0, 0); }
 }
 .terrain-scroll {
-  animation: terrain-scroll 7s linear infinite;
+  animation: terrain-scroll 11s linear infinite;
   will-change: transform;
 }
 
@@ -148,11 +148,11 @@ body {
    side-to-side sway so the swarm feels alive and airborne, not pinned. */
 @keyframes drone-hover {
   0%, 100% { transform: translate(0, 0); }
-  25%      { transform: translate(0.8px, -2px); }
-  50%      { transform: translate(0, -3.5px); }
-  75%      { transform: translate(-0.8px, -1.5px); }
+  25%      { transform: translate(1.4px, -3.5px); }
+  50%      { transform: translate(0, -5.5px); }
+  75%      { transform: translate(-1.4px, -2.5px); }
 }
-.drone-hover { animation: drone-hover 4s ease-in-out infinite; will-change: transform; }
+.drone-hover { animation: drone-hover 3.6s ease-in-out infinite; will-change: transform; }
 
 /* break beat — expanding red shockwave when an attack lands */
 @keyframes shockwave {
