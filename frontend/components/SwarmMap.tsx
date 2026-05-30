@@ -427,6 +427,10 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
 const nodeTypes = { drone: DroneNode };
 const edgeTypes = { data: DataEdge };
 
+// Keep the swarm in the clear band between the floating glass rails (~300px each
+// side) and above the bottom telemetry dock, so drones are never hidden behind UI.
+const FIT_PADDING = { top: "56px", right: "330px", bottom: "120px", left: "330px" } as const;
+
 /* Topographic terrain: hillshaded relief (diffuse lighting on a procedural
    height field) for real depth, plus thin iso-contour lines on top. Two stacked,
    identical, self-tiling tiles scroll continuously DOWNWARD so the swarm reads as
@@ -845,7 +849,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
       }
       if (k > 0) rf.setCenter(sx / k, sy / k, { zoom: 1.15, duration: 600 });
     } else if (cleared) {
-      rf.fitView({ padding: 0.16, duration: 700 });
+      rf.fitView({ padding: FIT_PADDING, duration: 700 });
     }
   }, [state?.links, state?.nodes, posOverride]);
 
@@ -921,7 +925,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           onEdgeMouseEnter={onEdgeEnter}
           onEdgeMouseLeave={clearHover}
           fitView
-          fitViewOptions={{ padding: 0.16 }}
+          fitViewOptions={FIT_PADDING}
           nodesDraggable
           nodesConnectable={false}
           panOnDrag={false}
