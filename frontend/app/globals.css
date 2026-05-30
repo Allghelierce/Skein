@@ -130,14 +130,17 @@ body {
   to { transform: translate3d(0, 0, 0); }
 }
 .terrain-scroll {
-  animation: terrain-scroll 26s linear infinite;
+  animation: terrain-scroll 20s linear infinite;
   will-change: transform;
 }
 
-/* idle hover — drones bob gently like hovering aircraft */
+/* idle drift — drones hold formation while flying: a gentle bob plus a tiny
+   side-to-side sway so the swarm feels alive and airborne, not pinned. */
 @keyframes drone-hover {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(0.8px, -2px); }
+  50%      { transform: translate(0, -3.5px); }
+  75%      { transform: translate(-0.8px, -1.5px); }
 }
 .drone-hover { animation: drone-hover 4s ease-in-out infinite; will-change: transform; }
 
