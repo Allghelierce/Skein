@@ -136,7 +136,7 @@ class Simulator:
                 return Detector(str(_MODEL_PATH)), "trained"
             except Exception:
                 pass
-        return FakeDetector(labeled_rows), "FakeDetector(nearest-centroid)"
+        return FakeDetector(labeled_rows), "FakeDetector(k-NN)"
 
     # --- sampling ----------------------------------------------------------
     def _sample_features(self, link) -> dict:
