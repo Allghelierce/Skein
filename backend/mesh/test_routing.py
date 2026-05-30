@@ -20,13 +20,15 @@ def test_reroutes_around_dead_link():
 
 def test_topology_is_connected_with_redundancy():
     g = SwarmGraph()
-    # 7 drones, each with 2-3 neighbours, fully connected mesh.
-    assert len(g.nodes) == 7
+    # Dense 13-drone mesh: core + inner ring + outer ring, k-nearest wired so
+    # every drone has at least 4 neighbours (the redundancy that lets the swarm
+    # survive losing multiple nodes).
+    assert len(g.nodes) == 13
     for node in g.nodes:
         degree = sum(1 for l in g.links if node.id in (l.source, l.target))
-        assert 2 <= degree <= 3
+        assert degree >= 4
     # Every node reachable from D1.
-    reachable = shortest_path(g, "D1", "D7", avoid=set())
+    reachable = shortest_path(g, "D1", "D10", avoid=set())
     assert reachable is not None
 
 
@@ -38,20 +40,33 @@ def test_partition_returns_none():
     assert shortest_path(g, a, b, avoid=all_links) is None
 
 
+def _neighbours_of(g, node_id):
+    nbrs = set()
+    for l in g.links:
+        if l.source == node_id:
+            nbrs.add(l.target)
+        elif l.target == node_id:
+            nbrs.add(l.source)
+    return nbrs
+
+
 def test_routes_around_a_removed_node():
     g = SwarmGraph()
-    # D1's neighbours are D2 and D7. Removing D2 should force D1->D3 to detour
-    # around D2 entirely (D2 never appears in the path).
-    path = shortest_path(g, "D1", "D3", avoid_nodes={"D2"})
+    # D8's neighbours include D3 and D9 (a direct D8-D9 link exists). Removing D8
+    # should force D9->D3 to detour around D8 entirely (D8 never in the path).
+    path = shortest_path(g, "D9", "D3", avoid_nodes={"D8"})
     assert path is not None
-    assert "D2" not in path
-    assert path[0] == "D1" and path[-1] == "D3"
+    assert "D8" not in path
+    assert path[0] == "D9" and path[-1] == "D3"
 
 
 def test_isolated_node_falls_out_of_main_component():
     g = SwarmGraph()
-    # D1's only neighbours are D2 and D7. Quarantine both -> D1 is cut off.
-    comps = components(g, avoid_nodes={"D2", "D7"})
+    # The dense mesh survives losing a couple of nodes — to actually cut a drone
+    # off we must remove its ENTIRE neighbour set. Surround D8 completely.
+    target = "D8"
+    neighbours = _neighbours_of(g, target)
+    comps = components(g, avoid_nodes=neighbours)
     main = comps[0]
-    assert "D1" not in main
-    assert any(c == {"D1"} for c in comps)
+    assert target not in main
+    assert any(c == {target} for c in comps)
