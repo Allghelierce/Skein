@@ -1,10 +1,16 @@
 // frontend/components/SwarmMap.tsx
-// The plot. A hex swarm formation on a framed dark field. Calm and neutral by
-// default; color enters only with state — red when jammed/hacked, green along
-// the healed reroute. Click to select; a detail card shows the live ML readout.
+// The plot. A swarm formation on a framed dark field, flying over drifting
+// topographic terrain. Calm and neutral by default; color enters only with
+// state — red when jammed/hacked, green along the healed reroute.
+//
+// Four stacking "alive" effects, all derived from existing state:
+//   1. heal sweep   — a bright comet sweeps the new route hop-by-hop
+//   2. idle hover    — each drone gently bobs like a hovering aircraft
+//   3. break beat    — a red shockwave + edge snap when an attack lands
+//   4. spotlight     — calm mesh dims during combat so the break/heal pop
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -41,6 +47,64 @@ const HANDLE_STYLE = {
   minHeight: 0,
 } as const;
 
+// ── small helpers ───────────────────────────────────────────────────────────
+function hashLabel(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(mq.matches);
+    const handler = () => setReduced(mq.matches);
+    mq.addEventListener?.("change", handler);
+    return () => mq.removeEventListener?.("change", handler);
+  }, []);
+  return reduced;
+}
+
+// Reconstruct route order: BFS from each break (jammed link source) over the
+// rerouted edges only, so each healed edge learns its hop distance from the
+// break. Returns linkId -> staggered animation delay (seconds).
+function computeHopDelays(links: SwarmLink[]): Map<string, number> {
+  const jammedSources = links.filter((l) => l.status === "jammed").map((l) => l.source);
+  const rerouted = links.filter((l) => l.status === "rerouted");
+  if (jammedSources.length === 0 || rerouted.length === 0) return new Map();
+
+  const adj = new Map<string, { to: string; id: string }[]>();
+  for (const l of rerouted) {
+    (adj.get(l.source) ?? adj.set(l.source, []).get(l.source)!).push({ to: l.target, id: l.id });
+    (adj.get(l.target) ?? adj.set(l.target, []).get(l.target)!).push({ to: l.source, id: l.id });
+  }
+
+  const dist = new Map<string, number>();
+  const queue: string[] = [];
+  for (const s of jammedSources) {
+    if (!dist.has(s)) {
+      dist.set(s, 0);
+      queue.push(s);
+    }
+  }
+  const hop = new Map<string, number>();
+  while (queue.length) {
+    const u = queue.shift() as string;
+    const du = dist.get(u) as number;
+    for (const { to, id } of adj.get(u) ?? []) {
+      if (!hop.has(id)) hop.set(id, du); // edge fires at the hop of its nearer endpoint
+      if (!dist.has(to)) {
+        dist.set(to, du + 1);
+        queue.push(to);
+      }
+    }
+  }
+  const delay = new Map<string, number>();
+  for (const [id, h] of hop) delay.set(id, h * 0.14);
+  return delay;
+}
+
 function DroneGlyph({ color, size = 16 }: { color: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
@@ -61,6 +125,7 @@ interface DroneData extends Record<string, unknown> {
   status: SwarmNode["status"];
   selected: boolean;
   isolated: boolean;
+  combat: boolean;
 }
 type DroneNode = Node<DroneData, "drone">;
 
@@ -68,49 +133,66 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
   const threat = data.status === "attacked";
   // a cut-off (isolated) drone reads as offline: dark, dashed, no glow
   const offline = data.isolated && !threat;
-  const color = offline ? HEX.faint : nodeColor(data.status);
   const colored = !offline && data.status !== "healthy";
+  const color = offline ? HEX.faint : nodeColor(data.status);
   const ringColor = offline ? HEX.faint : colored ? color : HEX.node;
 
+  // spotlight: dim quiet/healthy drones during combat so threats stand out
+  const calm = !offline && !colored && !data.selected;
+  const dim = data.combat && calm;
+  const wrapperOpacity = offline ? 0.7 : dim ? 0.5 : 1;
+  const glyphColor = offline ? HEX.faint : colored ? color : dim ? "#3c3c44" : HEX.dim;
+
+  // staggered idle hover (skip for downed/offline drones)
+  const h = hashLabel(data.label);
+  const hoverStyle = offline
+    ? undefined
+    : { animationDelay: `${(h % 20) / 10}s`, animationDuration: `${3.4 + (h % 9) * 0.12}s` };
+
   return (
-    <div className="relative grid place-items-center" style={{ opacity: offline ? 0.7 : 1 }}>
+    <div
+      className="relative grid place-items-center"
+      style={{ opacity: wrapperOpacity, transition: "opacity 0.4s ease" }}
+    >
       <Handle type="target" position={Position.Top} style={HANDLE_STYLE} />
       <Handle type="source" position={Position.Bottom} style={HANDLE_STYLE} />
 
-      {threat && (
-        <span className="absolute h-11 w-11 rounded-full animate-skein-ring" style={{ border: `1px solid ${color}` }} />
-      )}
-      {data.selected && (
+      <div className={offline ? "grid place-items-center" : "drone-hover grid place-items-center"} style={hoverStyle}>
+        {threat && (
+          <span className="absolute h-11 w-11 rounded-full animate-skein-ring" style={{ border: `1px solid ${color}` }} />
+        )}
+        {data.selected && (
+          <span
+            className="pointer-events-none absolute h-[46px] w-[46px] rounded-full"
+            style={{ border: `1px solid ${colored ? color : HEX.ink}`, opacity: 0.55 }}
+          />
+        )}
+
+        <motion.div
+          animate={{
+            borderColor: ringColor,
+            boxShadow: colored ? `0 0 16px ${color}55` : "0 0 14px rgba(0,0,0,0.6)",
+            scale: data.selected ? 1.1 : 1,
+          }}
+          transition={{ duration: 0.35 }}
+          className="grid h-[34px] w-[34px] place-items-center rounded-full bg-[#0b0b0e]"
+          style={{ border: `1px ${offline ? "dashed" : "solid"} ${ringColor}` }}
+        >
+          <DroneGlyph color={glyphColor} />
+        </motion.div>
+
         <span
-          className="pointer-events-none absolute h-[46px] w-[46px] rounded-full"
-          style={{ border: `1px solid ${colored ? color : HEX.ink}`, opacity: 0.55 }}
-        />
-      )}
-
-      <motion.div
-        animate={{
-          borderColor: ringColor,
-          boxShadow: colored ? `0 0 16px ${color}55` : "0 0 14px rgba(0,0,0,0.6)",
-          scale: data.selected ? 1.1 : 1,
-        }}
-        transition={{ duration: 0.35 }}
-        className="grid h-[34px] w-[34px] place-items-center rounded-full bg-[#0b0b0e]"
-        style={{ border: `1px ${offline ? "dashed" : "solid"} ${ringColor}` }}
-      >
-        <DroneGlyph color={offline ? HEX.faint : colored ? color : HEX.dim} />
-      </motion.div>
-
-      <span
-        className="absolute -bottom-[19px] whitespace-nowrap text-[0.62rem] font-medium tracking-tight"
-        style={{ color: offline ? HEX.faint : colored ? color : HEX.dim }}
-      >
-        {offline ? `${data.label} · OFFLINE` : data.label}
-      </span>
+          className="absolute -bottom-[19px] whitespace-nowrap text-[0.62rem] font-medium tracking-tight"
+          style={{ color: offline ? HEX.faint : colored ? color : HEX.dim }}
+        >
+          {offline ? `${data.label} · OFFLINE` : data.label}
+        </span>
+      </div>
     </div>
   );
 }
 
-/* ── Link with optional traveling packet ────────────────────────────────── */
+/* ── Link with traffic + one-shot heal/break effects ────────────────────── */
 interface DataEdgeData extends Record<string, unknown> {
   status: SwarmLink["status"];
   active: boolean;
@@ -118,22 +200,30 @@ interface DataEdgeData extends Record<string, unknown> {
   confidence: number;
   attack: boolean;
   dead: boolean;
+  combat: boolean;
+  seq: number; // bumps each time this link (re)enters jammed/rerouted
+  hopDelay: number; // stagger for the heal comet (seconds)
+  reducedMotion: boolean;
 }
 type DataEdge = Edge<DataEdgeData, "data">;
 
-function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEdge>) {
+function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEdge>) {
   const [path, labelX, labelY] = getStraightPath({ sourceX, sourceY, targetX, targetY });
   const status = data?.status ?? "healthy";
   const active = data?.active ?? false;
   const selected = data?.selected ?? false;
   const confidence = data?.confidence ?? 0;
   const attack = data?.attack ?? false;
-  const dead = data?.dead ?? false; // link to a cut-off drone: no traffic crosses
+  const dead = data?.dead ?? false;
+  const combat = data?.combat ?? false;
+  const seq = data?.seq ?? 0;
+  const hopDelay = data?.hopDelay ?? 0;
+  const reduced = data?.reducedMotion ?? false;
   const color = linkColor(status);
   const jammed = status === "jammed";
   const rerouted = status === "rerouted";
 
-  // a dead link (leads to an isolated drone) is drawn faint + static, no packet
+  // a dead link (leads to a cut-off drone) is drawn faint + static, no packet
   if (dead && !jammed) {
     return (
       <BaseEdge
@@ -144,20 +234,26 @@ function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEd
   }
 
   const width = (jammed ? 1.8 : rerouted ? 2.8 : 1.1) + (selected ? 1 : 0);
-  const opacity = jammed || rerouted ? 1 : active ? 0.6 : 0.42;
+  // spotlight: quiet links recede during combat
+  let opacity = jammed || rerouted ? 1 : active ? 0.6 : 0.42;
+  if (combat && !jammed && !rerouted) opacity = active ? 0.26 : 0.16;
 
-  // always-on traffic: every link carries a visible packet so the swarm reads
-  // "alive" — soft green data on quiet links, red/green during combat.
+  // always-on traffic packet
   const packetColor = jammed ? HEX.red : rerouted ? HEX.green : "#4fae86";
-  const packetOpacity = jammed || rerouted ? 1 : active ? 0.9 : 0.55;
+  let packetOpacity = jammed || rerouted ? 1 : active ? 0.9 : 0.55;
+  if (combat && !jammed && !rerouted) packetOpacity *= 0.4;
   const packetR = jammed ? 2 : rerouted ? 3 : active ? 2.3 : 1.9;
   const dur = jammed ? "0.8s" : rerouted ? "0.7s" : active ? "1.5s" : "2.4s";
 
-  // per-link confidence label, shown for every link every tick
   const labelColor = jammed ? HEX.red : rerouted ? HEX.green : HEX.faint;
 
   return (
     <>
+      {/* one-shot red snap when the attack lands (replays on re-jam via seq key) */}
+      {jammed && !reduced && (
+        <path key={`flash-${id}-${seq}`} d={path} className="edge-snap" style={{ stroke: HEX.red, fill: "none" }} />
+      )}
+
       <BaseEdge
         path={path}
         className={jammed ? "edge-jammed" : rerouted ? "edge-reroute" : undefined}
@@ -165,6 +261,7 @@ function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEd
           stroke: jammed || rerouted ? color : "#3a3a44",
           strokeWidth: width,
           opacity,
+          transition: "opacity 0.4s ease",
           filter: jammed
             ? "drop-shadow(0 0 4px #ff3b5c)"
             : rerouted
@@ -172,10 +269,55 @@ function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEd
               : undefined,
         }}
       />
-      <circle r={packetR} fill={packetColor} opacity={packetOpacity} style={{ filter: `drop-shadow(0 0 3px ${packetColor})` }}>
+
+      {/* always-on packet */}
+      <circle
+        r={packetR}
+        fill={packetColor}
+        opacity={packetOpacity}
+        style={{ filter: `drop-shadow(0 0 3px ${packetColor})`, transition: "opacity 0.4s ease" }}
+      >
         <animateMotion dur={dur} repeatCount="indefinite" path={path} />
       </circle>
+
+      {/* heal sweep: bright comet runs the new route once, staggered by hop */}
+      {rerouted && !reduced && (
+        <circle
+          key={`heal-${id}-${seq}`}
+          r={4.5}
+          fill={HEX.green}
+          opacity={0}
+          style={{ filter: `drop-shadow(0 0 6px ${HEX.green})` }}
+        >
+          <animateMotion dur="0.55s" begin={`${hopDelay}s`} repeatCount="1" path={path} fill="freeze" />
+          <animate
+            attributeName="opacity"
+            values="1;1;0"
+            keyTimes="0;0.75;1"
+            dur="0.55s"
+            begin={`${hopDelay}s`}
+            repeatCount="1"
+            fill="freeze"
+          />
+        </circle>
+      )}
+
       <EdgeLabelRenderer>
+        {/* break beat: expanding shockwave at the break midpoint */}
+        {jammed && !reduced && (
+          <div
+            key={`snap-${id}-${seq}`}
+            className="shockwave pointer-events-none absolute"
+            style={{
+              left: labelX,
+              top: labelY,
+              width: 54,
+              height: 54,
+              borderRadius: "9999px",
+              border: `2px solid ${HEX.red}`,
+            }}
+          />
+        )}
         <div
           className="mono pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 tabular-nums"
           style={{
@@ -184,7 +326,8 @@ function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEd
             fontSize: "0.55rem",
             color: labelColor,
             fontWeight: attack ? 700 : 400,
-            opacity: jammed || rerouted ? 1 : 0.7,
+            opacity: combat && !jammed && !rerouted ? 0.4 : jammed || rerouted ? 1 : 0.7,
+            transition: "opacity 0.4s ease",
             textShadow: "0 0 4px #000, 0 0 4px #000",
           }}
         >
@@ -225,14 +368,12 @@ function MapField() {
               stitchTiles="stitch"
               result="noise"
             />
-            {/* height map (alpha) drives the lighting bump */}
             <feColorMatrix
               in="noise"
               type="matrix"
               values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0"
               result="height"
             />
-            {/* shaded relief = depth + elevation */}
             <feDiffuseLighting
               in="height"
               surfaceScale="6"
@@ -242,7 +383,6 @@ function MapField() {
             >
               <feDistantLight azimuth="235" elevation="44" />
             </feDiffuseLighting>
-            {/* contour lines: step height into bands then edge-detect boundaries */}
             <feColorMatrix
               in="noise"
               type="matrix"
@@ -270,7 +410,6 @@ function MapField() {
             />
             <feFlood floodColor="#5affb0" result="line" />
             <feComposite in="line" in2="lineAlpha" operator="in" result="lines" />
-            {/* relief (dimmed) under the contour lines */}
             <feComponentTransfer in="relief" result="reliefDim">
               <feFuncA type="linear" slope="0.55" />
             </feComponentTransfer>
@@ -282,13 +421,11 @@ function MapField() {
         </defs>
       </svg>
 
-      {/* two identical tiles, scrolling down for a forward-flight feel */}
       <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.4 }}>
         <TerrainTile />
         <TerrainTile />
       </div>
 
-      {/* vignette to focus the swarm */}
       <div
         className="absolute inset-0"
         style={{
@@ -377,6 +514,15 @@ interface Props {
 }
 
 export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
+  const reducedMotion = usePrefersReducedMotion();
+  // remember last status per link so we can fire one-shot effects on transitions
+  const prevStatus = useRef<Map<string, SwarmLink["status"]>>(new Map());
+  const pulseSeq = useRef<Map<string, number>>(new Map());
+
+  const hostiles = state?.links.filter((l) => l.status === "jammed").length ?? 0;
+  const combat = hostiles > 0;
+  const hopDelays = useMemo(() => computeHopDelays(state?.links ?? []), [state?.links]);
+
   const nodes: DroneNode[] = useMemo(() => {
     return (state?.nodes ?? []).map((n) => ({
       id: n.id,
@@ -387,27 +533,49 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
         status: n.status,
         selected: selected?.kind === "node" && selected.id === n.id,
         isolated: isolated.has(n.id),
+        combat,
       },
       draggable: false,
     }));
-  }, [state?.nodes, selected, isolated]);
+  }, [state?.nodes, selected, isolated, combat]);
 
   const edges: DataEdge[] = useMemo(() => {
-    return (state?.links ?? []).map((l) => ({
-      id: l.id,
-      source: l.source,
-      target: l.target,
-      type: "data",
-      data: {
-        status: l.status,
-        active: l.active,
-        selected: selected?.kind === "link" && selected.id === l.id,
-        confidence: l.prediction.confidence,
-        attack: !!l.prediction.attack_type,
-        dead: isolated.has(l.source) || isolated.has(l.target),
-      },
-    }));
-  }, [state?.links, selected, isolated]);
+    return (state?.links ?? []).map((l) => {
+      const prev = prevStatus.current.get(l.id);
+      const justJammed = prev !== "jammed" && l.status === "jammed";
+      const justRerouted = prev !== "rerouted" && l.status === "rerouted";
+      if (justJammed || justRerouted) {
+        pulseSeq.current.set(l.id, (pulseSeq.current.get(l.id) ?? 0) + 1);
+      }
+      return {
+        id: l.id,
+        source: l.source,
+        target: l.target,
+        type: "data",
+        data: {
+          status: l.status,
+          active: l.active,
+          selected: selected?.kind === "link" && selected.id === l.id,
+          confidence: l.prediction.confidence,
+          attack: !!l.prediction.attack_type,
+          dead: isolated.has(l.source) || isolated.has(l.target),
+          combat,
+          seq: pulseSeq.current.get(l.id) ?? 0,
+          hopDelay: hopDelays.get(l.id) ?? 0,
+          reducedMotion,
+        },
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.links, selected, isolated, combat, hopDelays, reducedMotion]);
+
+  // commit the new statuses AFTER render so transition detection stays stable
+  // across StrictMode double-invokes and unrelated re-renders.
+  useEffect(() => {
+    const next = new Map<string, SwarmLink["status"]>();
+    for (const l of state?.links ?? []) next.set(l.id, l.status);
+    prevStatus.current = next;
+  }, [state?.links]);
 
   const onNodeClick = useCallback<NodeMouseHandler>(
     (_e, node) => onSelect({ kind: "node", id: node.id }),
@@ -418,8 +586,6 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
     [onSelect],
   );
   const onPaneClick = useCallback(() => onSelect(null), [onSelect]);
-
-  const hostiles = state?.links.filter((l) => l.status === "jammed").length ?? 0;
 
   return (
     <HudFrame className="relative min-h-0 flex-1 overflow-hidden">
