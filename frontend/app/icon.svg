@@ -1,0 +1,25 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+  <!-- Skein favicon: swarm-under-attack mesh on a dark tile -->
+  <defs>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0b0e13"/>
+  <g transform="translate(4 13) scale(0.18667)">
+    <!-- mesh links (edges to struck node sag) -->
+    <g stroke="#8a8a93" stroke-width="7" stroke-linecap="round" fill="none" opacity="0.9">
+      <line x1="150" y1="70" x2="70" y2="130"/>
+      <line x1="70" y1="130" x2="235" y2="155"/>
+      <line x1="235" y1="155" x2="150" y2="70"/>
+    </g>
+    <!-- healthy nodes -->
+    <g fill="#ededf0">
+      <path transform="translate(97.5 49) scale(1.05)" d="M50 17 C37 7 19 9 5 19 C22 16 40 19 50 22 Z M50 17 C63 7 81 9 95 19 C78 16 60 19 50 22 Z M50 16 C52 16 52 21 50 26 C48 21 48 16 50 16 Z M49 22 C47 29 43 34 36 40 C41 33 46 28 49 24 Z M51 22 C53 29 57 34 64 40 C59 33 54 28 51 24 Z"/>
+      <path transform="translate(20 110)" d="M50 17 C37 7 19 9 5 19 C22 16 40 19 50 22 Z M50 17 C63 7 81 9 95 19 C78 16 60 19 50 22 Z M50 16 C52 16 52 21 50 26 C48 21 48 16 50 16 Z M49 22 C47 29 43 34 36 40 C41 33 46 28 49 24 Z M51 22 C53 29 57 34 64 40 C59 33 54 28 51 24 Z"/>
+    </g>
+    <!-- struck node: neon red, tilted, dropped, glowing -->
+    <path fill="#ff0a3c" filter="url(#glow)" transform="translate(185 135) rotate(35 50 20)" d="M50 17 C37 7 19 9 5 19 C22 16 40 19 50 22 Z M50 17 C63 7 81 9 95 19 C78 16 60 19 50 22 Z M50 16 C52 16 52 21 50 26 C48 21 48 16 50 16 Z M49 22 C47 29 43 34 36 40 C41 33 46 28 49 24 Z M51 22 C53 29 57 34 64 40 C59 33 54 28 51 24 Z"/>
+  </g>
+</svg>

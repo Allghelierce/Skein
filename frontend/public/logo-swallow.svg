@@ -1,0 +1,44 @@
+<svg viewBox="0 0 300 210" xmlns="http://www.w3.org/2000/svg" width="300" height="210">
+  <!-- Skein mark: 3-node swallow mesh, one node struck red & breaking the triangle -->
+  <defs>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- mesh links (behind birds); edges to the struck node sag as it drops -->
+  <g stroke="#5a626f" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.85">
+    <line x1="150" y1="70" x2="70"  y2="130"/>
+    <line x1="70"  y1="130" x2="235" y2="155"/>
+    <line x1="235" y1="155" x2="150" y2="70"/>
+  </g>
+
+  <!-- swallow silhouette helper: wings + body + streamer tails, centered ~ (50,20) in a 100x40 box -->
+
+  <!-- top node (s 1.05) -->
+  <g transform="translate(97.5 49)" fill="#f4f6fa"><g transform="scale(1.05)">
+    <path d="M50 17 C37 7 19 9 5 19 C22 16 40 19 50 22 Z"/>
+    <path d="M50 17 C63 7 81 9 95 19 C78 16 60 19 50 22 Z"/>
+    <path d="M50 16 C52 16 52 21 50 26 C48 21 48 16 50 16 Z"/>
+    <path d="M49 22 C47 29 43 34 36 40 C41 33 46 28 49 24 Z"/>
+    <path d="M51 22 C53 29 57 34 64 40 C59 33 54 28 51 24 Z"/>
+  </g></g>
+
+  <!-- left node -->
+  <g transform="translate(20 110)" fill="#f4f6fa">
+    <path d="M50 17 C37 7 19 9 5 19 C22 16 40 19 50 22 Z"/>
+    <path d="M50 17 C63 7 81 9 95 19 C78 16 60 19 50 22 Z"/>
+    <path d="M50 16 C52 16 52 21 50 26 C48 21 48 16 50 16 Z"/>
+    <path d="M49 22 C47 29 43 34 36 40 C41 33 46 28 49 24 Z"/>
+    <path d="M51 22 C53 29 57 34 64 40 C59 33 54 28 51 24 Z"/>
+  </g>
+
+  <!-- struck node: neon red, tilted, dropped out of formation, glowing -->
+  <g transform="translate(185 135) rotate(35 50 20)" fill="#ff0a3c" filter="url(#glow)">
+    <path d="M50 17 C37 7 19 9 5 19 C22 16 40 19 50 22 Z"/>
+    <path d="M50 17 C63 7 81 9 95 19 C78 16 60 19 50 22 Z"/>
+    <path d="M50 16 C52 16 52 21 50 26 C48 21 48 16 50 16 Z"/>
+    <path d="M49 22 C47 29 43 34 36 40 C41 33 46 28 49 24 Z"/>
+    <path d="M51 22 C53 29 57 34 64 40 C59 33 54 28 51 24 Z"/>
+  </g>
+</svg>
