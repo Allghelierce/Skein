@@ -7,6 +7,7 @@ import type { LinkStatus, NodeStatus, ThreatLevel } from "./types";
 export const HEX = {
   green: "#2ee27a",
   red: "#ff3b5c",
+  amber: "#ffb02e", // elevated risk — danger before it lands
   node: "#34343c", // neutral healthy unit
   ink: "#ededf0",
   dim: "#8a8a93",

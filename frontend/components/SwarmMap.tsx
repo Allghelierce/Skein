@@ -31,6 +31,7 @@ import type { StateMessage, SwarmLink, SwarmNode } from "@/lib/types";
 import { HEX, linkColor, nodeColor } from "@/lib/palette";
 import { HudFrame } from "@/components/Hud";
 import type { Selection } from "@/lib/ws";
+import { computeRisk } from "@/lib/risk";
 
 const CANVAS_W = 840;
 const CANVAS_H = 580;
@@ -126,6 +127,7 @@ interface DroneData extends Record<string, unknown> {
   selected: boolean;
   isolated: boolean;
   combat: boolean;
+  risk: number; // 0..1 attack-likeness of this drone's neighbourhood
 }
 type DroneNode = Node<DroneData, "drone">;
 
@@ -149,6 +151,11 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
     ? undefined
     : { animationDelay: `${(h % 20) / 10}s`, animationDuration: `${3.4 + (h % 9) * 0.12}s` };
 
+  // risk heat: a healthy drone whose neighbourhood is turning attack-like glows
+  // amber — danger you can see BEFORE it lands. Suppressed once it's actually red.
+  const risk = data.risk ?? 0;
+  const showRisk = !offline && !threat && risk >= 0.18;
+
   return (
     <div
       className="relative grid place-items-center"
@@ -158,6 +165,25 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
       <Handle type="source" position={Position.Bottom} style={HANDLE_STYLE} />
 
       <div className={offline ? "grid place-items-center" : "drone-hover grid place-items-center"} style={hoverStyle}>
+        {showRisk && (
+          <>
+            <span
+              className="pointer-events-none absolute rounded-full"
+              style={{
+                width: 34 + risk * 30,
+                height: 34 + risk * 30,
+                background: `radial-gradient(circle, ${HEX.amber}40 0%, transparent 70%)`,
+                opacity: 0.35 + risk * 0.5,
+              }}
+            />
+            {risk >= 0.4 && (
+              <span
+                className="risk-pulse pointer-events-none absolute rounded-full"
+                style={{ width: 44, height: 44, border: `1px solid ${HEX.amber}`, opacity: risk * 0.7 }}
+              />
+            )}
+          </>
+        )}
         {threat && (
           <span className="absolute h-11 w-11 rounded-full animate-skein-ring" style={{ border: `1px solid ${color}` }} />
         )}
@@ -522,6 +548,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
   const hostiles = state?.links.filter((l) => l.status === "jammed").length ?? 0;
   const combat = hostiles > 0;
   const hopDelays = useMemo(() => computeHopDelays(state?.links ?? []), [state?.links]);
+  const riskMap = useMemo(() => computeRisk(state), [state]);
 
   const nodes: DroneNode[] = useMemo(() => {
     return (state?.nodes ?? []).map((n) => ({
@@ -534,10 +561,11 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
         selected: selected?.kind === "node" && selected.id === n.id,
         isolated: isolated.has(n.id),
         combat,
+        risk: riskMap.get(n.id) ?? 0,
       },
       draggable: false,
     }));
-  }, [state?.nodes, selected, isolated, combat]);
+  }, [state?.nodes, selected, isolated, combat, riskMap]);
 
   const edges: DataEdge[] = useMemo(() => {
     return (state?.links ?? []).map((l) => {

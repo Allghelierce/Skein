@@ -149,6 +149,14 @@ body {
 }
 .edge-snap { animation: edge-snap 0.45s ease-out forwards; }
 
+/* risk heat — amber ring breathes on a drone whose neighbourhood is turning
+   attack-like (the predicted next target) */
+@keyframes risk-pulse {
+  0%, 100% { transform: scale(0.92); opacity: 0.35; }
+  50% { transform: scale(1.12); opacity: 0.85; }
+}
+.risk-pulse { animation: risk-pulse 1.9s ease-in-out infinite; }
+
 /* respect reduced-motion: kill all looping + one-shot motion */
 @media (prefers-reduced-motion: reduce) {
   .drone-hover,
@@ -158,7 +166,8 @@ body {
   .animate-skein-ring,
   .animate-skein-pulse,
   .shockwave,
-  .edge-snap {
+  .edge-snap,
+  .risk-pulse {
     animation: none !important;
   }
 }
