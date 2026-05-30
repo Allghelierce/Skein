@@ -4,7 +4,7 @@
 // the healed reroute. Click to select; a detail card shows the live ML readout.
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -19,6 +19,7 @@ import {
   type NodeMouseHandler,
   type NodeProps,
   type OnNodesChange,
+  type Viewport,
   type XYPosition,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -557,6 +558,45 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
+/* ── Auto-focus pulse ───────────────────────────────────────────────────────
+   When an attack lands, an expanding ring blooms at exactly that spot so the
+   judge's eye is pulled to the action before they even read the event feed. */
+interface Pulse {
+  key: number;
+  x: number; // flow coords
+  y: number;
+}
+
+function FocusPulse({ pulse, viewport }: { pulse: Pulse; viewport: Viewport }) {
+  const left = pulse.x * viewport.zoom + viewport.x;
+  const top = pulse.y * viewport.zoom + viewport.y;
+  return (
+    <div className="pointer-events-none absolute" style={{ left, top }}>
+      {[0, 0.22].map((delay) => (
+        <motion.span
+          key={delay}
+          className="absolute rounded-full"
+          style={{ width: 110, height: 110, marginLeft: -55, marginTop: -55, border: `2px solid ${HEX.red}` }}
+          initial={{ scale: 0.12, opacity: 0.85 }}
+          animate={{ scale: 1, opacity: 0 }}
+          transition={{ duration: 1.4, ease: "easeOut", delay }}
+        />
+      ))}
+      <motion.span
+        className="absolute"
+        style={{ marginLeft: -55, marginTop: -55 }}
+        initial={{ scale: 0.4, opacity: 0 }}
+        animate={{ scale: 1, opacity: [0, 1, 0] }}
+        transition={{ duration: 1.2, ease: "easeOut" }}
+      >
+        <span className="block -translate-x-1/2 -translate-y-[26px] whitespace-nowrap text-[0.6rem] font-semibold uppercase tracking-wide" style={{ color: HEX.red }}>
+          ⚠ contact
+        </span>
+      </motion.span>
+    </div>
+  );
+}
+
 interface Props {
   state: StateMessage | null;
   selected: Selection;
@@ -618,6 +658,61 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
     }));
   }, [state?.links, selected, isolated]);
 
+  // Live flow-space position of every drone (honoring drag overrides), so the
+  // auto-focus pulse can be placed exactly where the attack landed.
+  const flowPos = useMemo(() => {
+    const m = new Map<string, XYPosition>();
+    for (const n of state?.nodes ?? []) {
+      m.set(n.id, positions[n.id] ?? { x: n.x * CANVAS_W, y: n.y * CANVAS_H });
+    }
+    return m;
+  }, [state?.nodes, positions]);
+
+  // Track the React Flow viewport so overlays (pulses) line up with the canvas
+  // through fitView / zoom.
+  const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
+
+  // Auto-focus: detect attacks that are NEW since last tick and bloom a pulse at
+  // each. We diff against the previous set so an ongoing attack doesn't re-pulse.
+  const [pulses, setPulses] = useState<Pulse[]>([]);
+  const prevAttacks = useRef<Set<string>>(new Set());
+  const pulseSeq = useRef(0);
+  useEffect(() => {
+    if (!state) return;
+    const current = new Set<string>();
+    const fresh: XYPosition[] = [];
+    for (const l of state.links) {
+      if (l.status !== "jammed") continue;
+      const key = `L:${l.id}`;
+      current.add(key);
+      if (!prevAttacks.current.has(key)) {
+        const a = flowPos.get(l.source);
+        const b = flowPos.get(l.target);
+        if (a && b) fresh.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+      }
+    }
+    for (const n of state.nodes) {
+      if (n.status !== "attacked") continue;
+      const key = `N:${n.id}`;
+      current.add(key);
+      if (!prevAttacks.current.has(key)) {
+        const p = flowPos.get(n.id);
+        if (p) fresh.push({ x: p.x, y: p.y });
+      }
+    }
+    prevAttacks.current = current;
+    if (fresh.length === 0) return;
+
+    const added = fresh.map((p) => ({ key: pulseSeq.current++, x: p.x, y: p.y }));
+    setPulses((prev) => [...prev, ...added]);
+    const keys = new Set(added.map((p) => p.key));
+    const timer = window.setTimeout(
+      () => setPulses((prev) => prev.filter((p) => !keys.has(p.key))),
+      1700,
+    );
+    return () => window.clearTimeout(timer);
+  }, [state, flowPos]);
+
   const onNodeClick = useCallback<NodeMouseHandler>(
     (_e, node) => onSelect({ kind: "node", id: node.id }),
     [onSelect],
@@ -670,6 +765,8 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           onEdgeMouseEnter={onEdgeHover}
           onEdgeMouseMove={onEdgeHover}
           onEdgeMouseLeave={clearHover}
+          onInit={(inst) => setViewport(inst.getViewport())}
+          onMove={(_e, vp) => setViewport(vp)}
           fitView
           fitViewOptions={{ padding: 0.16 }}
           nodesDraggable
@@ -681,6 +778,13 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           preventScrolling={false}
           proOptions={{ hideAttribution: true }}
         />
+      </div>
+
+      {/* auto-focus pulses sit above the canvas, pinned to the attack location */}
+      <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+        {pulses.map((p) => (
+          <FocusPulse key={p.key} pulse={p} viewport={viewport} />
+        ))}
       </div>
 
       <DetailCard state={state} selected={selected} />
