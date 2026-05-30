@@ -2,7 +2,7 @@
 // Skein command center.
 //   TOP    StatusBar + MissionStatus (comms / survival)
 //   CENTER SwarmMap · LiveStatsBar · RawDataScope (the ML, working, visible)
-//   RIGHT  DetectorPanel · WhyFlagged · EventFeed
+//   RIGHT  DetectorPanel · ReportCard · WhyFlagged · EventFeed
 //   BOTTOM AttackControls (judge levers)
 "use client";
 
@@ -14,6 +14,7 @@ import { EventFeed } from "@/components/EventFeed";
 import { LiveStatsBar } from "@/components/LiveStatsBar";
 import { MissionStatus } from "@/components/MissionStatus";
 import { RawDataScope } from "@/components/RawDataScope";
+import { ReportCard } from "@/components/ReportCard";
 import { StatusBar } from "@/components/StatusBar";
 import { SwarmMap } from "@/components/SwarmMap";
 import { WhyFlagged } from "@/components/WhyFlagged";
@@ -48,8 +49,9 @@ export default function Page() {
           </div>
         </div>
 
-        <aside className="flex w-[360px] min-w-[320px] flex-col gap-4">
+        <aside className="scroll-thin flex w-[360px] min-w-[320px] flex-col gap-4 overflow-y-auto">
           <DetectorPanel state={state} />
+          <ReportCard />
           <WhyFlagged state={state} />
           <EventFeed state={state} />
         </aside>
