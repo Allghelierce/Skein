@@ -578,32 +578,105 @@ function MapField() {
 }
 
 /* ── Selection detail card ──────────────────────────────────────────────── */
-function DetailCard({ state, selected }: { state: StateMessage | null; selected: Selection }) {
-  if (!selected || !state) return null;
 
-  if (selected.kind === "link") {
-    const link = state.links.find((l) => l.id === selected.id);
+// Where a unit sits in the formation, derived from the fixed topology
+// (D1 core · D2–D5 inner ring · D6–D13 outer ring). Host nodes are external.
+function droneRole(id: string, host: boolean): string {
+  if (host) return "host node";
+  const m = /^D(\d+)$/.exec(id);
+  if (!m) return "node";
+  const n = Number(m[1]);
+  if (n === 1) return "core";
+  if (n <= 5) return "inner ring";
+  return "outer ring";
+}
+
+// Single source of truth for the "is this unit simulated or a real device?" label,
+// shared by the click card and the hover tip so they never drift apart. Truthful by
+// construction: only a real registered host node with a live heartbeat reads "live".
+function nodeSource(node: SwarmNode, mode: "mock" | "live"): { text: string; color: string } {
+  if (mode === "mock") return { text: "simulated · mock", color: HEX.dim };
+  if (node.host) {
+    return node.status === "down"
+      ? { text: "host device · offline", color: HEX.red }
+      : { text: "host device · live", color: HEX.green };
+  }
+  return { text: "simulated · backend", color: HEX.dim };
+}
+
+// Fixed bottom-left inspector — shows the hovered unit (or, when nothing is
+// hovered, the last-clicked one). Replaces the old cursor-following tooltip.
+function DetailCard({
+  state,
+  focus,
+  mode,
+  riskMap,
+}: {
+  state: StateMessage | null;
+  focus: Selection;
+  mode: "mock" | "live";
+  riskMap: Map<string, number>;
+}) {
+  if (!focus || !state) return null;
+
+  if (focus.kind === "link") {
+    const link = state.links.find((l) => l.id === focus.id);
     if (!link) return null;
     const attack = !!link.prediction.attack_type;
     const color = link.status === "jammed" ? HEX.red : link.status === "rerouted" ? HEX.green : HEX.ink;
+    // the raw CIC features the detector leaned on (else key flow stats)
+    const feats = link.features ?? {};
+    const keys = (link.reasons ?? []).map((r) => r.feature).filter((k) => k in feats);
+    const shown = (keys.length ? keys : ["flow_packets_s", "total_fwd_packets", "flow_bytes_s"]).slice(0, 3);
     return (
       <Card title={`Link ${link.id}`} color={color} status={link.status}>
         <Stat label="Class" value={link.prediction.label} color={attack ? HEX.red : HEX.green} />
         <Stat label="Confidence" value={`${Math.round(link.prediction.confidence * 100)}%`} />
         <Stat label="Path" value={`${link.source} → ${link.target}`} />
+        {shown.map((k) => (
+          <Stat key={k} label={prettyFeature(k)} value={fmtNum(feats[k])} />
+        ))}
       </Card>
     );
   }
 
-  const node = state.nodes.find((n) => n.id === selected.id);
+  const node = state.nodes.find((n) => n.id === focus.id);
   if (!node) return null;
   const incident = state.links.filter((l) => l.source === node.id || l.target === node.id);
   const jammed = incident.filter((l) => l.status === "jammed").length;
-  const color = node.status === "attacked" ? HEX.red : node.status === "defending" ? HEX.green : HEX.ink;
+  const live = incident.filter((l) => l.active).length;
+  const risk = riskMap.get(node.id) ?? 0;
+  const host = !!node.host;
+  const down = node.status === "down";
+
+  // simulated here vs. physically running on a separate device (e.g. laptop 2)
+  const { text: source, color: sourceColor } = nodeSource(node, mode);
+
+  const color =
+    node.status === "attacked" || down
+      ? HEX.red
+      : node.status === "defending"
+        ? HEX.green
+        : host
+          ? HEX.green
+          : HEX.ink;
+
   return (
-    <Card title={`Drone ${node.id}`} color={color} status={node.status}>
-      <Stat label="Links" value={String(incident.length)} />
-      <Stat label="Compromised" value={String(jammed)} color={jammed ? HEX.red : undefined} />
+    <Card title={host ? `Node ${node.id}` : `Drone ${node.id}`} color={color} status={node.status}>
+      <Stat label="Source" value={source} color={sourceColor} />
+      {mode === "live" && host && (
+        <Stat
+          label="Heartbeat"
+          value={node.beat_age != null ? `${node.beat_age}s ago` : "—"}
+          color={down ? HEX.red : HEX.green}
+        />
+      )}
+      <Stat label="Role" value={droneRole(node.id, host)} />
+      <Stat label="Links" value={`${live}/${incident.length} live`} />
+      <Stat label="Risk" value={`${Math.round(risk * 100)}%`} color={riskColor(risk)} />
+      {jammed > 0 && (
+        <Stat label="Under attack" value={`${jammed} link${jammed > 1 ? "s" : ""}`} color={HEX.red} />
+      )}
     </Card>
   );
 }
@@ -620,7 +693,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="pointer-events-none absolute bottom-4 left-4 z-20 w-56 rounded-lg border border-line bg-panel/95 p-3 backdrop-blur">
+    <div className="pointer-events-none absolute bottom-3 left-4 z-30 w-[280px] rounded-lg border border-line bg-panel/95 p-3 shadow-xl backdrop-blur">
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-ink">{title}</span>
         <span
@@ -646,11 +719,8 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
-/* ── Hover tooltip ──────────────────────────────────────────────────────────
-   Ephemeral card that follows the cursor. Drone → status / risk / live traffic;
-   link → verdict / confidence / the raw features driving it. Reads straight off
-   the live state so the numbers are always the ones the detector just scored. */
-type Hover = { kind: "node" | "link"; id: string; x: number; y: number };
+/* What the cursor is currently over (drives the fixed bottom-right inspector). */
+type Hover = { kind: "node" | "link"; id: string };
 
 function fmtNum(v: number): string {
   if (!isFinite(v)) return "—";
@@ -670,106 +740,15 @@ function riskColor(risk: number): string {
   return risk >= 0.55 ? HEX.red : risk >= 0.18 ? HEX.amber : HEX.dim;
 }
 
-function HoverTip({
-  hover,
-  state,
-  riskMap,
-}: {
-  hover: Hover | null;
-  state: StateMessage | null;
-  riskMap: Map<string, number>;
-}) {
-  if (!hover || !state) return null;
-
-  // place the card near the cursor, flipping to stay inside the viewport
-  const flipX = typeof window !== "undefined" && hover.x > window.innerWidth - 260;
-  const flipY = typeof window !== "undefined" && hover.y > window.innerHeight - 180;
-  const style: React.CSSProperties = {
-    position: "fixed",
-    left: hover.x + (flipX ? -16 : 16),
-    top: hover.y + (flipY ? -12 : 16),
-    transform: `translate(${flipX ? "-100%" : "0"}, ${flipY ? "-100%" : "0"})`,
-    zIndex: 50,
-  };
-
-  let title = "";
-  let badge = "";
-  let badgeColor: string = HEX.ink;
-  const rows: { label: string; value: string; color?: string }[] = [];
-
-  if (hover.kind === "link") {
-    const link = state.links.find((l) => l.id === hover.id);
-    if (!link) return null;
-    const attack = !!link.prediction.attack_type;
-    title = `Link ${link.source}–${link.target}`;
-    badge = link.status;
-    badgeColor =
-      link.status === "jammed" ? HEX.red : link.status === "rerouted" ? HEX.green : HEX.dim;
-    rows.push({
-      label: "Verdict",
-      value: link.prediction.label,
-      color: attack ? HEX.red : HEX.green,
-    });
-    rows.push({ label: "Confidence", value: `${Math.round(link.prediction.confidence * 100)}%` });
-    // a few raw features — the ones the detector leaned on, else key flow stats
-    const feats = link.features ?? {};
-    const keys = (link.reasons ?? []).map((r) => r.feature).filter((k) => k in feats);
-    const shown = (keys.length ? keys : ["flow_packets_s", "total_fwd_packets", "flow_bytes_s"]).slice(0, 3);
-    for (const k of shown) {
-      if (k in feats) rows.push({ label: prettyFeature(k), value: fmtNum(feats[k]) });
-    }
-  } else {
-    const node = state.nodes.find((n) => n.id === hover.id);
-    if (!node) return null;
-    const incident = state.links.filter((l) => l.source === node.id || l.target === node.id);
-    const jammed = incident.filter((l) => l.status === "jammed").length;
-    const live = incident.filter((l) => l.active).length;
-    const risk = riskMap.get(node.id) ?? 0;
-    title = `Drone ${node.id}`;
-    badge = node.status;
-    badgeColor =
-      node.status === "attacked" ? HEX.red : node.status === "defending" ? HEX.green : HEX.dim;
-    rows.push({ label: "Risk", value: `${Math.round(risk * 100)}%`, color: riskColor(risk) });
-    rows.push({ label: "Live traffic", value: `${live}/${incident.length} links` });
-    if (jammed > 0) rows.push({ label: "Under attack", value: `${jammed} link${jammed > 1 ? "s" : ""}`, color: HEX.red });
-  }
-
-  return (
-    <div
-      className="pointer-events-none w-[220px] rounded-lg border border-line bg-panel/95 p-2.5 shadow-xl backdrop-blur"
-      style={style}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-ink">{title}</span>
-        <span
-          className="rounded px-1.5 py-0.5 text-[0.55rem] font-medium capitalize"
-          style={{ color: badgeColor, border: `1px solid ${badgeColor}44` }}
-        >
-          {badge}
-        </span>
-      </div>
-      <div className="mono mt-2 space-y-1">
-        {rows.map((r) => (
-          <div key={r.label} className="flex items-center justify-between gap-3">
-            <span className="label-xs normal-case tracking-normal">{r.label}</span>
-            <span className="text-[0.7rem] tabular-nums" style={{ color: r.color ?? HEX.ink }}>
-              {r.value}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 interface Props {
   state: StateMessage | null;
   selected: Selection;
   onSelect: (sel: Selection) => void;
   isolated: Set<string>;
+  mode: "mock" | "live";
 }
 
-export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
+export function SwarmMap({ state, selected, onSelect, isolated, mode }: Props) {
   // Gate the interactive ReactFlow canvas (and anything that reads window/
   // measures the DOM) behind a client-only mounted flag. The server render and
   // the first client render are therefore identical — just the static HUD frame
@@ -917,19 +896,22 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
   // hover tooltips — follow the cursor while over a drone or link
   const [hover, setHover] = useState<Hover | null>(null);
   const onNodeEnter = useCallback<NodeMouseHandler>(
-    (e, node) => setHover({ kind: "node", id: node.id, x: e.clientX, y: e.clientY }),
+    (_e, node) => setHover({ kind: "node", id: node.id }),
     [],
   );
   const onEdgeEnter = useCallback<EdgeMouseHandler<DataEdge>>(
-    (e, edge) => setHover({ kind: "link", id: edge.id, x: e.clientX, y: e.clientY }),
+    (_e, edge) => setHover({ kind: "link", id: edge.id }),
     [],
   );
   const clearHover = useCallback(() => setHover(null), []);
-  const onHoverMove = useCallback(
-    (e: React.MouseEvent) =>
-      setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h)),
-    [],
-  );
+
+  // The inspector shows whatever the cursor is over; when nothing is hovered it
+  // falls back to the last clicked unit (click pins, hover previews).
+  const focus: Selection = hover
+    ? hover.kind === "node"
+      ? { kind: "node", id: hover.id }
+      : { kind: "link", id: hover.id }
+    : selected;
 
   // optional, mutable audio cues — off by default (autoplay policy + restraint)
   const [audioOn, setAudioOn] = useState(false);
@@ -960,7 +942,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
 
       <MapField />
 
-      <div className="absolute inset-0 z-10" onMouseMove={onHoverMove} onMouseLeave={clearHover}>
+      <div className="absolute inset-0 z-10" onMouseLeave={clearHover}>
         {mounted && (
         <ReactFlow
           nodes={nodes}
@@ -990,8 +972,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
         )}
       </div>
 
-      <DetailCard state={state} selected={selected} />
-      <HoverTip hover={hover} state={state} riskMap={riskMap} />
+      <DetailCard state={state} focus={focus} mode={mode} riskMap={riskMap} />
     </HudFrame>
   );
 }

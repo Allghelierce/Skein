@@ -533,12 +533,27 @@ class Simulator:
         return "CRITICAL"
 
     def _serialize(self, threat_level: str) -> dict:
+        now = self._clock()
         return {
             "type": "state",
             "tick": self.tick_count,
             "threat_level": threat_level,
             "nodes": [
-                {"id": n.id, "x": n.x, "y": n.y, "status": n.status}
+                {
+                    "id": n.id,
+                    "x": n.x,
+                    "y": n.y,
+                    "status": n.status,
+                    # host => this node is physically running on another device
+                    # (e.g. laptop 2), NOT simulated here. beat_age = seconds since
+                    # its last heartbeat (None for simulated drones / no beat yet).
+                    "host": n.id in self.host_nodes,
+                    "beat_age": (
+                        round(now - self.heartbeats[n.id], 1)
+                        if n.id in self.host_nodes and n.id in self.heartbeats
+                        else None
+                    ),
+                }
                 for n in self.graph.nodes
             ],
             "links": [
