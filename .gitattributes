@@ -1,0 +1,9 @@
+# Keep GitHub's language bar focused on the real stack (TypeScript + Python).
+# These files are real and stay in the repo — they're just excluded from the
+# language stats so the project reads cleanly.
+
+# Standalone logo mockups (design exploration, not app source)
+logo-*.html linguist-documentation
+
+# Tooling config (build/lint), not hand-written application code
+*.config.mjs linguist-vendored
