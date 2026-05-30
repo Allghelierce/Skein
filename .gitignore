@@ -37,6 +37,9 @@ backend/data/*.csv
 /ui/
 /phase2a/
 /phase2b/
+/interactivity/
+/attacker/
+/backend-net/
 /skein-integration/
 
 # Local agent/session + env files
