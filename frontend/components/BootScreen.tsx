@@ -26,58 +26,79 @@ const LINE_MS = 185;
 const HOLD_MS = 460;
 const FADE_MS = 520;
 
-// quick "decode" reveal for the wordmark: each slot churns through random glyphs
-// and locks into its final letter, left-to-right, over ~0.5s.
-const DECODE_GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&/<>*+";
+// fast character-randomization reveal: every slot flickers through random glyphs
+// each frame and locks into its real letter left-to-right, chased by a bright
+// green scan front. ~0.45s, fixed-width cells so it doesn't jitter.
+const DECODE_GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&/<>*+=!?";
 
-function decodeMask(text: string): string {
-  // deterministic initial frame so server and client render identically (no
-  // hydration mismatch); the random churn only begins in the effect below.
-  return text
-    .split("")
-    .map((c, i) => (c === " " ? " " : DECODE_GLYPHS[(i * 7) % DECODE_GLYPHS.length]))
-    .join("");
+type Slot = { ch: string; locked: boolean; front: boolean };
+
+function maskSlots(text: string): Slot[] {
+  // deterministic first frame (server === client → no hydration mismatch); the
+  // random churn only begins in the effect.
+  return text.split("").map((c, i) => ({
+    ch: c === " " ? " " : DECODE_GLYPHS[(i * 7) % DECODE_GLYPHS.length],
+    locked: false,
+    front: false,
+  }));
 }
 
-function DecodeText({ text, durationMs = 500 }: { text: string; durationMs?: number }) {
-  const [out, setOut] = useState(() => decodeMask(text));
+function DecodeText({ text, durationMs = 450 }: { text: string; durationMs?: number }) {
+  const [slots, setSlots] = useState<Slot[]>(() => maskSlots(text));
+  const len = text.length;
 
   useEffect(() => {
     const reduce =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setOut(text);
-      return;
-    }
-    // each slot locks at a RANDOM point in the back half, so every letter churns
-    // rapidly at once and snaps in out of order — a chaotic decode, not a wipe.
-    const lockAt = text.split("").map(() => 0.4 + Math.random() * 0.55);
+    const solved = () => text.split("").map((ch) => ({ ch, locked: true, front: false }));
     let raf = 0;
     let start = 0;
+    if (reduce) {
+      raf = requestAnimationFrame(() => setSlots(solved()));
+      return () => cancelAnimationFrame(raf);
+    }
+    const rnd = () => DECODE_GLYPHS[Math.floor(Math.random() * DECODE_GLYPHS.length)];
     const step = (now: number) => {
       if (!start) start = now;
       const t = Math.min(1, (now - start) / durationMs);
-      setOut(
-        text
-          .split("")
-          .map((ch, i) =>
-            ch === " "
-              ? " "
-              : t >= lockAt[i]
-                ? ch
-                : DECODE_GLYPHS[Math.floor(Math.random() * DECODE_GLYPHS.length)],
-          )
-          .join(""),
+      setSlots(
+        text.split("").map((ch, i) => {
+          if (ch === " ") return { ch: " ", locked: true, front: false };
+          const lockFrac = (i + 0.85) / len; // staggered left-to-right
+          const locked = t >= lockFrac;
+          const front = !locked && t >= lockFrac - 0.16; // wave front, about to lock
+          return { ch: locked ? ch : rnd(), locked, front };
+        }),
       );
       if (t < 1) raf = requestAnimationFrame(step);
-      else setOut(text);
+      else setSlots(solved());
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [text, durationMs]);
+  }, [text, durationMs, len]);
 
-  return <>{out}</>;
+  return (
+    <>
+      {slots.map((s, i) =>
+        s.ch === " " ? (
+          " "
+        ) : (
+          <span
+            key={i}
+            className="inline-block text-center"
+            style={{
+              width: "0.72em",
+              color: s.locked ? HEX.ink : s.front ? HEX.green : "#54545e",
+              textShadow: s.front ? `0 0 16px ${HEX.green}, 0 0 5px ${HEX.green}` : undefined,
+            }}
+          >
+            {s.ch}
+          </span>
+        ),
+      )}
+    </>
+  );
 }
 
 export function BootScreen() {
