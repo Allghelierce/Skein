@@ -34,6 +34,11 @@ data/raw/
 /ui/
 /skein-integration/
 
+# Local agent/session + env files
+.claude/
+.superpowers/
+frontend/.env.local
+
 # OS / editor
 .DS_Store
 .idea/
