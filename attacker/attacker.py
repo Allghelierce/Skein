@@ -292,8 +292,10 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Skein offense console (laptop 2).")
     p.add_argument(
         "--host",
-        default=os.environ.get("SKEIN_HOST", "127.0.0.1"),
-        help="laptop 1's IP (e.g. its phone-hotspot address). Env: SKEIN_HOST.",
+        default=os.environ.get("SKEIN_HOST"),
+        help="laptop 1's IP (e.g. its phone-hotspot address). REQUIRED — pass it "
+             "or set SKEIN_HOST. Use --host 127.0.0.1 only for the single-laptop "
+             "fallback; there is no implicit localhost default.",
     )
     p.add_argument(
         "--port", type=int, default=int(os.environ.get("SKEIN_PORT", "8000"))
@@ -305,6 +307,14 @@ def main() -> None:
     p.add_argument("--no-heartbeat", action="store_true",
                    help="attack only; do not register as a killable node.")
     args = p.parse_args()
+
+    # No silent localhost fallback for the cross-laptop link: a forgotten --host
+    # must fail loudly, not quietly connect the attacker to itself.
+    if not args.host:
+        p.error(
+            "no host set — pass --host <laptop1-ip> (or set SKEIN_HOST). "
+            "For the single-laptop fallback, pass --host 127.0.0.1 explicitly."
+        )
 
     uri = _build_uri(args.host, args.port)
     console = AttackerConsole(

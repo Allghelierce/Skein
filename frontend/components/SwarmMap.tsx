@@ -19,8 +19,12 @@ import {
   type NodeMouseHandler,
   type NodeProps,
   type OnNodesChange,
+<<<<<<< HEAD
   type Viewport,
   type XYPosition,
+=======
+  type ReactFlowInstance,
+>>>>>>> interactivity
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { motion } from "framer-motion";
@@ -30,6 +34,8 @@ import { computeRisk } from "@/lib/risk";
 import { audio } from "@/lib/audio";
 import { HudFrame } from "@/components/Hud";
 import type { Selection } from "@/lib/ws";
+import { computeRisk } from "@/lib/risk";
+import { useAudioCues } from "@/lib/audio";
 
 const CANVAS_W = 840;
 const CANVAS_H = 580;
@@ -60,14 +66,35 @@ function DroneGlyph({ color, size = 16 }: { color: string; size?: number }) {
   );
 }
 
+function SpeakerIcon({ on }: { on: boolean }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" stroke="none" />
+      {on ? (
+        <>
+          <path d="M16 8.5a5 5 0 0 1 0 7" />
+          <path d="M18.5 6a8 8 0 0 1 0 12" />
+        </>
+      ) : (
+        <path d="M16 9l5 6M21 9l-5 6" />
+      )}
+    </svg>
+  );
+}
+
 /* ── Drone marker ───────────────────────────────────────────────────────── */
 interface DroneData extends Record<string, unknown> {
   label: string;
   status: SwarmNode["status"];
   selected: boolean;
   isolated: boolean;
+<<<<<<< HEAD
   risk: number; // 0..1 how attack-like this drone's traffic has trended
   predicted: boolean; // flagged as the likely next target
+=======
+  combat: boolean;
+  risk: number; // 0..1 attack-likeness of this drone's neighbourhood
+>>>>>>> interactivity
 }
 type DroneNode = Node<DroneData, "drone">;
 
@@ -82,11 +109,17 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
   // once a drone is already attacked (the threat ring takes over) or offline.
   const glow = offline || threat ? null : riskGlow(data.risk);
 
+  // risk heat: a healthy drone whose neighbourhood is turning attack-like glows
+  // amber — danger you can see BEFORE it lands. Suppressed once it's actually red.
+  const risk = data.risk ?? 0;
+  const showRisk = !offline && !threat && risk >= 0.18;
+
   return (
     <div className="relative grid place-items-center" style={{ opacity: offline ? 0.7 : 1 }}>
       <Handle type="target" position={Position.Top} style={HANDLE_STYLE} />
       <Handle type="source" position={Position.Bottom} style={HANDLE_STYLE} />
 
+<<<<<<< HEAD
       {glow && (
         <motion.span
           className="pointer-events-none absolute rounded-full"
@@ -97,6 +130,43 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
             height: 56,
             width: 56,
             background: `radial-gradient(circle, ${glow.color}${Math.round(glow.alpha * 255).toString(16).padStart(2, "0")} 0%, transparent 70%)`,
+=======
+      <div className={offline ? "grid place-items-center" : "drone-hover grid place-items-center"} style={hoverStyle}>
+        {showRisk && (
+          <>
+            <span
+              className="pointer-events-none absolute rounded-full"
+              style={{
+                width: 34 + risk * 30,
+                height: 34 + risk * 30,
+                background: `radial-gradient(circle, ${HEX.amber}40 0%, transparent 70%)`,
+                opacity: 0.35 + risk * 0.5,
+              }}
+            />
+            {risk >= 0.4 && (
+              <span
+                className="risk-pulse pointer-events-none absolute rounded-full"
+                style={{ width: 44, height: 44, border: `1px solid ${HEX.amber}`, opacity: risk * 0.7 }}
+              />
+            )}
+          </>
+        )}
+        {threat && (
+          <span className="absolute h-11 w-11 rounded-full animate-skein-ring" style={{ border: `1px solid ${color}` }} />
+        )}
+        {data.selected && (
+          <span
+            className="pointer-events-none absolute h-[46px] w-[46px] rounded-full"
+            style={{ border: `1px solid ${colored ? color : HEX.ink}`, opacity: 0.55 }}
+          />
+        )}
+
+        <motion.div
+          animate={{
+            borderColor: ringColor,
+            boxShadow: colored ? `0 0 16px ${color}55` : "0 0 14px rgba(0,0,0,0.6)",
+            scale: data.selected ? 1.1 : 1,
+>>>>>>> interactivity
           }}
         />
       )}
@@ -202,6 +272,8 @@ type DataEdge = Edge<DataEdgeData, "data">;
 
 function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEdge>) {
   const [path, labelX, labelY] = getStraightPath({ sourceX, sourceY, targetX, targetY });
+  const mx = (sourceX + targetX) / 2; // break point — where jammed traffic dies
+  const my = (sourceY + targetY) / 2;
   const status = data?.status ?? "healthy";
   const active = data?.active ?? false;
   const selected = data?.selected ?? false;
@@ -249,6 +321,7 @@ function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEd
               : undefined,
         }}
       />
+<<<<<<< HEAD
       {jammed ? (
         <>
           {/* a queue of packets that push toward the jam, pile up, and drop */}
@@ -269,6 +342,79 @@ function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEd
         </>
       ) : (
         <Packet path={path} color="#4fae86" r={active ? 2.3 : 1.9} dur={active ? "1.5s" : "2.4s"} opacity={active ? 0.9 : 0.55} />
+=======
+
+      {/* traffic packets — healthy/rerouted links carry flow across; on a jammed
+          link the packets stream toward the break and DIE there (drop), so the
+          eye reads traffic failing, not just a colour change. */}
+      {jammed ? (
+        <>
+          {!reduced &&
+            [0, -0.45].map((begin, i) => (
+              <circle
+                key={`fail-${i}`}
+                r={2}
+                fill={HEX.red}
+                opacity={0}
+                style={{ filter: `drop-shadow(0 0 3px ${HEX.red})` }}
+              >
+                <animateMotion
+                  dur="0.9s"
+                  begin={`${begin}s`}
+                  repeatCount="indefinite"
+                  path={path}
+                  keyPoints="0;0.5"
+                  keyTimes="0;1"
+                  calcMode="linear"
+                />
+                <animate
+                  attributeName="opacity"
+                  dur="0.9s"
+                  begin={`${begin}s`}
+                  repeatCount="indefinite"
+                  values="0;0.9;0.9;0"
+                  keyTimes="0;0.25;0.8;1"
+                />
+              </circle>
+            ))}
+          {/* the break itself: packets pile up and burst at the jam point */}
+          <circle cx={mx} cy={my} r={2} fill={HEX.red} style={{ filter: `drop-shadow(0 0 4px ${HEX.red})` }}>
+            {!reduced && <animate attributeName="r" values="1.5;3.6;1.5" dur="0.7s" repeatCount="indefinite" />}
+            {!reduced && <animate attributeName="opacity" values="0.5;1;0.5" dur="0.7s" repeatCount="indefinite" />}
+          </circle>
+        </>
+      ) : (
+        <circle
+          r={packetR}
+          fill={packetColor}
+          opacity={packetOpacity}
+          style={{ filter: `drop-shadow(0 0 3px ${packetColor})`, transition: "opacity 0.4s ease" }}
+        >
+          <animateMotion dur={dur} repeatCount="indefinite" path={path} />
+        </circle>
+      )}
+
+      {/* heal sweep: bright comet runs the new route once, staggered by hop */}
+      {rerouted && !reduced && (
+        <circle
+          key={`heal-${id}-${seq}`}
+          r={4.5}
+          fill={HEX.green}
+          opacity={0}
+          style={{ filter: `drop-shadow(0 0 6px ${HEX.green})` }}
+        >
+          <animateMotion dur="0.55s" begin={`${hopDelay}s`} repeatCount="1" path={path} fill="freeze" />
+          <animate
+            attributeName="opacity"
+            values="1;1;0"
+            keyTimes="0;0.75;1"
+            dur="0.55s"
+            begin={`${hopDelay}s`}
+            repeatCount="1"
+            fill="freeze"
+          />
+        </circle>
+>>>>>>> interactivity
       )}
       <EdgeLabelRenderer>
         <div
@@ -559,6 +705,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
+<<<<<<< HEAD
 /* ── Auto-focus pulse ───────────────────────────────────────────────────────
    When an attack lands, an expanding ring blooms at exactly that spot so the
    judge's eye is pulled to the action before they even read the event feed. */
@@ -594,6 +741,120 @@ function FocusPulse({ pulse, viewport }: { pulse: Pulse; viewport: Viewport }) {
           ⚠ contact
         </span>
       </motion.span>
+=======
+/* ── Hover tooltip ──────────────────────────────────────────────────────────
+   Ephemeral card that follows the cursor. Drone → status / risk / live traffic;
+   link → verdict / confidence / the raw features driving it. Reads straight off
+   the live state so the numbers are always the ones the detector just scored. */
+type Hover = { kind: "node" | "link"; id: string; x: number; y: number };
+
+function fmtNum(v: number): string {
+  if (!isFinite(v)) return "—";
+  const a = Math.abs(v);
+  if (a >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+  if (a >= 1e3) return `${(v / 1e3).toFixed(1)}k`;
+  if (a >= 100) return v.toFixed(0);
+  if (a >= 1) return v.toFixed(1);
+  return v.toFixed(2);
+}
+
+function prettyFeature(key: string): string {
+  return key.replace(/_/g, " ").replace(/\bs\b/, "/s");
+}
+
+function riskColor(risk: number): string {
+  return risk >= 0.55 ? HEX.red : risk >= 0.18 ? HEX.amber : HEX.dim;
+}
+
+function HoverTip({
+  hover,
+  state,
+  riskMap,
+}: {
+  hover: Hover | null;
+  state: StateMessage | null;
+  riskMap: Map<string, number>;
+}) {
+  if (!hover || !state) return null;
+
+  // place the card near the cursor, flipping to stay inside the viewport
+  const flipX = typeof window !== "undefined" && hover.x > window.innerWidth - 260;
+  const flipY = typeof window !== "undefined" && hover.y > window.innerHeight - 180;
+  const style: React.CSSProperties = {
+    position: "fixed",
+    left: hover.x + (flipX ? -16 : 16),
+    top: hover.y + (flipY ? -12 : 16),
+    transform: `translate(${flipX ? "-100%" : "0"}, ${flipY ? "-100%" : "0"})`,
+    zIndex: 50,
+  };
+
+  let title = "";
+  let badge = "";
+  let badgeColor: string = HEX.ink;
+  const rows: { label: string; value: string; color?: string }[] = [];
+
+  if (hover.kind === "link") {
+    const link = state.links.find((l) => l.id === hover.id);
+    if (!link) return null;
+    const attack = !!link.prediction.attack_type;
+    title = `Link ${link.source}–${link.target}`;
+    badge = link.status;
+    badgeColor =
+      link.status === "jammed" ? HEX.red : link.status === "rerouted" ? HEX.green : HEX.dim;
+    rows.push({
+      label: "Verdict",
+      value: link.prediction.label,
+      color: attack ? HEX.red : HEX.green,
+    });
+    rows.push({ label: "Confidence", value: `${Math.round(link.prediction.confidence * 100)}%` });
+    // a few raw features — the ones the detector leaned on, else key flow stats
+    const feats = link.features ?? {};
+    const keys = (link.reasons ?? []).map((r) => r.feature).filter((k) => k in feats);
+    const shown = (keys.length ? keys : ["flow_packets_s", "total_fwd_packets", "flow_bytes_s"]).slice(0, 3);
+    for (const k of shown) {
+      if (k in feats) rows.push({ label: prettyFeature(k), value: fmtNum(feats[k]) });
+    }
+  } else {
+    const node = state.nodes.find((n) => n.id === hover.id);
+    if (!node) return null;
+    const incident = state.links.filter((l) => l.source === node.id || l.target === node.id);
+    const jammed = incident.filter((l) => l.status === "jammed").length;
+    const live = incident.filter((l) => l.active).length;
+    const risk = riskMap.get(node.id) ?? 0;
+    title = `Drone ${node.id}`;
+    badge = node.status;
+    badgeColor =
+      node.status === "attacked" ? HEX.red : node.status === "defending" ? HEX.green : HEX.dim;
+    rows.push({ label: "Risk", value: `${Math.round(risk * 100)}%`, color: riskColor(risk) });
+    rows.push({ label: "Live traffic", value: `${live}/${incident.length} links` });
+    if (jammed > 0) rows.push({ label: "Under attack", value: `${jammed} link${jammed > 1 ? "s" : ""}`, color: HEX.red });
+  }
+
+  return (
+    <div
+      className="pointer-events-none w-[220px] rounded-lg border border-line bg-panel/95 p-2.5 shadow-xl backdrop-blur"
+      style={style}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-ink">{title}</span>
+        <span
+          className="rounded px-1.5 py-0.5 text-[0.55rem] font-medium capitalize"
+          style={{ color: badgeColor, border: `1px solid ${badgeColor}44` }}
+        >
+          {badge}
+        </span>
+      </div>
+      <div className="mono mt-2 space-y-1">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-center justify-between gap-3">
+            <span className="label-xs normal-case tracking-normal">{r.label}</span>
+            <span className="text-[0.7rem] tabular-nums" style={{ color: r.color ?? HEX.ink }}>
+              {r.value}
+            </span>
+          </div>
+        ))}
+      </div>
+>>>>>>> interactivity
     </div>
   );
 }
@@ -608,6 +869,7 @@ interface Props {
 export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
   const risk = useMemo(() => computeRisk(state), [state]);
 
+<<<<<<< HEAD
   // Drag overrides: once a judge moves a drone, its position is theirs to keep —
   // we hold the dragged coords here so the per-tick state stream doesn't snap it
   // back. Links recompute from live node positions, so they follow the hand.
@@ -622,25 +884,65 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
         }
       }
       return next;
+=======
+  const hostiles = state?.links.filter((l) => l.status === "jammed").length ?? 0;
+  const combat = hostiles > 0;
+  const hopDelays = useMemo(() => computeHopDelays(state?.links ?? []), [state?.links]);
+  const riskMap = useMemo(() => computeRisk(state), [state]);
+
+  // manual drag positions — judges can grab and rearrange the formation; the
+  // override sticks across the 1s state ticks so a dragged drone stays put.
+  const [posOverride, setPosOverride] = useState<Map<string, { x: number; y: number }>>(new Map());
+  const draggingRef = useRef(false);
+  const onNodesChange = useCallback<OnNodesChange<DroneNode>>((changes) => {
+    setPosOverride((prev) => {
+      let next: Map<string, { x: number; y: number }> | null = null;
+      for (const c of changes) {
+        if (c.type === "position") {
+          if (c.dragging !== undefined) draggingRef.current = c.dragging;
+          if (c.position) {
+            if (!next) next = new Map(prev);
+            next.set(c.id, c.position);
+          }
+        }
+      }
+      return next ?? prev;
+>>>>>>> interactivity
     });
   }, []);
 
   const nodes: DroneNode[] = useMemo(() => {
-    return (state?.nodes ?? []).map((n) => ({
+    return (state?.nodes ?? []).map((n) => {
+      const ov = posOverride.get(n.id);
+      return {
       id: n.id,
       type: "drone",
+<<<<<<< HEAD
       position: positions[n.id] ?? { x: n.x * CANVAS_W, y: n.y * CANVAS_H },
+=======
+      position: ov ?? { x: n.x * CANVAS_W, y: n.y * CANVAS_H },
+>>>>>>> interactivity
       data: {
         label: n.id,
         status: n.status,
         selected: selected?.kind === "node" && selected.id === n.id,
         isolated: isolated.has(n.id),
+<<<<<<< HEAD
         risk: risk.byNode.get(n.id) ?? 0,
         predicted: risk.predicted === n.id,
       },
       draggable: true,
     }));
   }, [state?.nodes, selected, isolated, risk, positions]);
+=======
+        combat,
+        risk: riskMap.get(n.id) ?? 0,
+      },
+      draggable: true,
+      };
+    });
+  }, [state?.nodes, selected, isolated, combat, riskMap, posOverride]);
+>>>>>>> interactivity
 
   const edges: DataEdge[] = useMemo(() => {
     return (state?.links ?? []).map((l) => ({
@@ -732,6 +1034,43 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
     });
   }, []);
 
+  // auto-focus the action: when a fresh attack lands, glide the camera onto it
+  // so attention goes where it matters; when the swarm is clean again, re-frame
+  // the whole formation. Never fights an in-progress drag.
+  const rfRef = useRef<ReactFlowInstance<DroneNode, DataEdge> | null>(null);
+  const prevJammed = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const rf = rfRef.current;
+    const links = state?.links ?? [];
+    const jammed = new Set(links.filter((l) => l.status === "jammed").map((l) => l.id));
+    const fresh = [...jammed].filter((id) => !prevJammed.current.has(id));
+    const cleared = prevJammed.current.size > 0 && jammed.size === 0;
+    prevJammed.current = jammed;
+    if (!rf || draggingRef.current) return;
+
+    if (fresh.length > 0) {
+      // centroid of the newly-hit links' endpoints (respecting any manual drag)
+      const pos = (id: string) => {
+        const ov = posOverride.get(id);
+        if (ov) return ov;
+        const n = state?.nodes.find((m) => m.id === id);
+        return n ? { x: n.x * CANVAS_W, y: n.y * CANVAS_H } : null;
+      };
+      let sx = 0, sy = 0, k = 0;
+      for (const id of fresh) {
+        const l = links.find((m) => m.id === id);
+        if (!l) continue;
+        for (const end of [l.source, l.target]) {
+          const p = pos(end);
+          if (p) { sx += p.x; sy += p.y; k++; }
+        }
+      }
+      if (k > 0) rf.setCenter(sx / k, sy / k, { zoom: 1.15, duration: 600 });
+    } else if (cleared) {
+      rf.fitView({ padding: 0.16, duration: 700 });
+    }
+  }, [state?.links, state?.nodes, posOverride]);
+
   const onNodeClick = useCallback<NodeMouseHandler>(
     (_e, node) => onSelect({ kind: "node", id: node.id }),
     [onSelect],
@@ -742,6 +1081,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
   );
   const onPaneClick = useCallback(() => onSelect(null), [onSelect]);
 
+<<<<<<< HEAD
   // Hover tooltips: a live readout that tracks the cursor over drones and links.
   const [hover, setHover] = useState<Hover | null>(null);
   const onNodeHover = useCallback<NodeMouseHandler>(
@@ -749,16 +1089,38 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
     [],
   );
   const onEdgeHover = useCallback<EdgeMouseHandler<DataEdge>>(
+=======
+  // hover tooltips — follow the cursor while over a drone or link
+  const [hover, setHover] = useState<Hover | null>(null);
+  const onNodeEnter = useCallback<NodeMouseHandler>(
+    (e, node) => setHover({ kind: "node", id: node.id, x: e.clientX, y: e.clientY }),
+    [],
+  );
+  const onEdgeEnter = useCallback<EdgeMouseHandler<DataEdge>>(
+>>>>>>> interactivity
     (e, edge) => setHover({ kind: "link", id: edge.id, x: e.clientX, y: e.clientY }),
     [],
   );
   const clearHover = useCallback(() => setHover(null), []);
+<<<<<<< HEAD
 
   const hostiles = state?.links.filter((l) => l.status === "jammed").length ?? 0;
+=======
+  const onHoverMove = useCallback(
+    (e: React.MouseEvent) =>
+      setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h)),
+    [],
+  );
+
+  // optional, mutable audio cues — off by default (autoplay policy + restraint)
+  const [audioOn, setAudioOn] = useState(false);
+  useAudioCues({ state, isolatedCount: isolated.size, enabled: audioOn });
+>>>>>>> interactivity
 
   return (
     <HudFrame className="relative min-h-0 flex-1 overflow-hidden">
       <div className="pointer-events-none absolute left-4 top-3 z-20 panel-title">Swarm Map</div>
+<<<<<<< HEAD
       <div className="absolute right-4 top-3 z-20 flex items-center gap-3 text-[0.68rem]">
         <button
           type="button"
@@ -771,6 +1133,20 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           {muted ? "🔇" : "🔊"}
         </button>
         <div className="pointer-events-none flex items-center gap-2">
+=======
+      <div className="pointer-events-none absolute right-4 top-3 z-20 flex items-center gap-3 text-[0.68rem]">
+        <button
+          type="button"
+          onClick={() => setAudioOn((v) => !v)}
+          className="pointer-events-auto grid h-6 w-6 place-items-center rounded border border-line bg-panel-2/80 transition-colors hover:border-ink-faint"
+          style={{ color: audioOn ? HEX.green : HEX.faint }}
+          aria-label={audioOn ? "Mute audio cues" : "Enable audio cues"}
+          title={audioOn ? "Audio cues on" : "Audio cues off"}
+        >
+          <SpeakerIcon on={audioOn} />
+        </button>
+        <div className="flex items-center gap-2">
+>>>>>>> interactivity
           <span className="h-1.5 w-1.5 rounded-full" style={{ background: hostiles ? HEX.red : HEX.green }} />
           <span style={{ color: hostiles ? HEX.red : HEX.dim }}>
             {hostiles ? `${hostiles} contact${hostiles > 1 ? "s" : ""}` : "All nominal"}
@@ -780,16 +1156,21 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
 
       <MapField />
 
-      <div className="absolute inset-0 z-10">
+      <div className="absolute inset-0 z-10" onMouseMove={onHoverMove} onMouseLeave={clearHover}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+<<<<<<< HEAD
+=======
+          onInit={(inst) => { rfRef.current = inst; }}
+>>>>>>> interactivity
           onNodesChange={onNodesChange}
           onNodeClick={onNodeClick}
           onEdgeClick={onEdgeClick}
           onPaneClick={onPaneClick}
+<<<<<<< HEAD
           onNodeMouseEnter={onNodeHover}
           onNodeMouseMove={onNodeHover}
           onNodeMouseLeave={clearHover}
@@ -798,6 +1179,12 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           onEdgeMouseLeave={clearHover}
           onInit={(inst) => setViewport(inst.getViewport())}
           onMove={(_e, vp) => setViewport(vp)}
+=======
+          onNodeMouseEnter={onNodeEnter}
+          onNodeMouseLeave={clearHover}
+          onEdgeMouseEnter={onEdgeEnter}
+          onEdgeMouseLeave={clearHover}
+>>>>>>> interactivity
           fitView
           fitViewOptions={{ padding: 0.16 }}
           nodesDraggable
@@ -819,7 +1206,11 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
       </div>
 
       <DetailCard state={state} selected={selected} />
+<<<<<<< HEAD
       <HoverTip hover={hover} state={state} risk={risk.byNode} isolated={isolated} />
+=======
+      <HoverTip hover={hover} state={state} riskMap={riskMap} />
+>>>>>>> interactivity
     </HudFrame>
   );
 }

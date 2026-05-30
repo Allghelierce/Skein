@@ -31,7 +31,7 @@ Or reuse laptop 1's backend venv — it already has `websockets`.
 
 | Flag | Env | Default | Meaning |
 |------|-----|---------|---------|
-| `--host` | `SKEIN_HOST` | `127.0.0.1` | laptop 1's IP |
+| `--host` | `SKEIN_HOST` | **required** | laptop 1's IP — no localhost default; a missing host errors out (pass `--host 127.0.0.1` for the single-laptop fallback) |
 | `--port` | `SKEIN_PORT` | `8000` | backend port |
 | `--node` | `SKEIN_NODE` | `ATK` | mesh node id this laptop hosts |
 | `--heartbeat` | — | `1.0` | seconds between heartbeats |
