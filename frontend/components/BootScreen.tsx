@@ -26,6 +26,57 @@ const LINE_MS = 185;
 const HOLD_MS = 460;
 const FADE_MS = 520;
 
+// quick "decode" reveal for the wordmark: each slot churns through random glyphs
+// and locks into its final letter, left-to-right, over ~0.5s.
+const DECODE_GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&/<>*+";
+
+function decodeMask(text: string): string {
+  // deterministic initial frame so server and client render identically (no
+  // hydration mismatch); the random churn only begins in the effect below.
+  return text
+    .split("")
+    .map((c, i) => (c === " " ? " " : DECODE_GLYPHS[(i * 7) % DECODE_GLYPHS.length]))
+    .join("");
+}
+
+function DecodeText({ text, durationMs = 500 }: { text: string; durationMs?: number }) {
+  const [out, setOut] = useState(() => decodeMask(text));
+
+  useEffect(() => {
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      setOut(text);
+      return;
+    }
+    let raf = 0;
+    let start = 0;
+    const step = (now: number) => {
+      if (!start) start = now;
+      const t = Math.min(1, (now - start) / durationMs);
+      setOut(
+        text
+          .split("")
+          .map((ch, i) => {
+            if (ch === " ") return " ";
+            // letter i locks once the wave passes it (slot 0 first, last slot at t=1)
+            return t >= (i + 1) / text.length
+              ? ch
+              : DECODE_GLYPHS[Math.floor(Math.random() * DECODE_GLYPHS.length)];
+          })
+          .join(""),
+      );
+      if (t < 1) raf = requestAnimationFrame(step);
+      else setOut(text);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [text, durationMs]);
+
+  return <>{out}</>;
+}
+
 export function BootScreen() {
   const [shown, setShown] = useState(0);
   const [fading, setFading] = useState(false);
@@ -58,8 +109,8 @@ export function BootScreen() {
       }}
     >
       <div className="w-full max-w-xl px-8">
-        <div className="boot-title text-center text-6xl font-bold tracking-[0.34em] text-ink sm:text-7xl">
-          SKEIN
+        <div className="text-center text-6xl font-bold tracking-[0.34em] text-ink tabular-nums sm:text-7xl">
+          <DecodeText text="SKEIN" />
         </div>
         <div className="mt-2 text-center text-[0.62rem] uppercase tracking-[0.5em] text-ink-dim">
           mesh defense system
