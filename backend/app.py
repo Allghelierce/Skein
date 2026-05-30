@@ -4,7 +4,15 @@ Streams full swarm state to the command-center frontend every tick (~1s) and
 accepts attack/reset commands. One Simulator instance is shared across clients
 so every connected screen sees the same world (handy for the demo).
 
-Run:  uvicorn app:app --reload --port 8000
+Run (local only):    uvicorn app:app --reload --port 8000
+Run (LAN / hotspot): uvicorn app:app --host 0.0.0.0 --port 8000
+
+Binding ``0.0.0.0`` (instead of the default 127.0.0.1) is what lets a second
+machine — e.g. the attacker laptop — reach this backend at
+``ws://<laptop1-ip>:8000/ws`` over a shared phone hotspot or LAN. Running this
+file directly (``python app.py``) binds 0.0.0.0 by default; host and port are
+overridable via the ``SKEIN_HOST`` / ``SKEIN_PORT`` env vars so nothing is
+hardcoded to a single network.
 """
 
 from __future__ import annotations
@@ -61,7 +69,7 @@ async def _receive(ws: WebSocket) -> None:
             if msg.get("type") == "command":
                 action = msg.get("action")
                 target = msg.get("target")
-                if action in ("jam", "stealth", "hack", "reset"):
+                if action in ("jam", "stealth", "hack", "reset", "heartbeat"):
                     simulator.command(action, target)
 
 
@@ -84,3 +92,135 @@ async def ws_endpoint(ws: WebSocket) -> None:
     for task in (*done, *pending):
         with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect):
             await task
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    # Bind 0.0.0.0 by default so other machines on the hotspot/LAN can connect.
+    # Override with SKEIN_HOST / SKEIN_PORT; never hardcode a single host/IP.
+    host = os.environ.get("SKEIN_HOST", "0.0.0.0")
+    port = int(os.environ.get("SKEIN_PORT", "8000"))
+    uvicorn.run("app:app", host=host, port=port)
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    # Bind 0.0.0.0 by default so other machines on the hotspot/LAN can connect.
+    # Override with SKEIN_HOST / SKEIN_PORT; never hardcode a single host/IP.
+    host = os.environ.get("SKEIN_HOST", "0.0.0.0")
+    port = int(os.environ.get("SKEIN_PORT", "8000"))
+    uvicorn.run("app:app", host=host, port=port)
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    # Bind 0.0.0.0 by default so other machines on the hotspot/LAN can connect.
+    # Override with SKEIN_HOST / SKEIN_PORT; never hardcode a single host/IP.
+    host = os.environ.get("SKEIN_HOST", "0.0.0.0")
+    port = int(os.environ.get("SKEIN_PORT", "8000"))
+    uvicorn.run("app:app", host=host, port=port)
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    # Bind 0.0.0.0 by default so other machines on the hotspot/LAN can connect.
+    # Override with SKEIN_HOST / SKEIN_PORT; never hardcode a single host/IP.
+    host = os.environ.get("SKEIN_HOST", "0.0.0.0")
+    port = int(os.environ.get("SKEIN_PORT", "8000"))
+    uvicorn.run("app:app", host=host, port=port)
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    # Bind 0.0.0.0 by default so other machines on the hotspot/LAN can connect.
+    # Override with SKEIN_HOST / SKEIN_PORT; never hardcode a single host/IP.
+    host = os.environ.get("SKEIN_HOST", "0.0.0.0")
+    port = int(os.environ.get("SKEIN_PORT", "8000"))
+    uvicorn.run("app:app", host=host, port=port)
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    # Bind 0.0.0.0 by default so other machines on the hotspot/LAN can connect.
+    # Override with SKEIN_HOST / SKEIN_PORT; never hardcode a single host/IP.
+    host = os.environ.get("SKEIN_HOST", "0.0.0.0")
+    port = int(os.environ.get("SKEIN_PORT", "8000"))
+    uvicorn.run("app:app", host=host, port=port)
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    # Bind 0.0.0.0 by default so other machines on the hotspot/LAN can connect.
+    # Override with SKEIN_HOST / SKEIN_PORT; never hardcode a single host/IP.
+    host = os.environ.get("SKEIN_HOST", "0.0.0.0")
+    port = int(os.environ.get("SKEIN_PORT", "8000"))
+    uvicorn.run("app:app", host=host, port=port)
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    # Bind 0.0.0.0 by default so other machines on the hotspot/LAN can connect.
+    # Override with SKEIN_HOST / SKEIN_PORT; never hardcode a single host/IP.
+    host = os.environ.get("SKEIN_HOST", "0.0.0.0")
+    port = int(os.environ.get("SKEIN_PORT", "8000"))
+    uvicorn.run("app:app", host=host, port=port)
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    # Bind 0.0.0.0 by default so other machines on the hotspot/LAN can connect.
+    # Override with SKEIN_HOST / SKEIN_PORT; never hardcode a single host/IP.
+    host = os.environ.get("SKEIN_HOST", "0.0.0.0")
+    port = int(os.environ.get("SKEIN_PORT", "8000"))
+    uvicorn.run("app:app", host=host, port=port)
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    # Bind 0.0.0.0 by default so other machines on the hotspot/LAN can connect.
+    # Override with SKEIN_HOST / SKEIN_PORT; never hardcode a single host/IP.
+    host = os.environ.get("SKEIN_HOST", "0.0.0.0")
+    port = int(os.environ.get("SKEIN_PORT", "8000"))
+    uvicorn.run("app:app", host=host, port=port)
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    # Bind 0.0.0.0 by default so other machines on the hotspot/LAN can connect.
+    # Override with SKEIN_HOST / SKEIN_PORT; never hardcode a single host/IP.
+    host = os.environ.get("SKEIN_HOST", "0.0.0.0")
+    port = int(os.environ.get("SKEIN_PORT", "8000"))
+    uvicorn.run("app:app", host=host, port=port)
