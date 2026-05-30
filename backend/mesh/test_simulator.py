@@ -181,3 +181,103 @@ def test_predict_consumes_full_feature_schema():
     sim = Simulator()
     feats = sim._sample_features(sim.graph.links[0])
     assert set(feats) == set(FEATURE_COLUMNS)
+
+
+def _fake_clock():
+    """A hand-cranked clock so heartbeat timeouts are deterministic in tests."""
+    state = {"t": 1000.0}
+    return state, (lambda: state["t"])
+
+
+def test_heartbeat_timeout_marks_node_down_and_reroutes():
+    # A claimed node that stops sending heartbeats is marked down once the
+    # timeout lapses, and the swarm heals around it via the same reroute path
+    # used for quarantine — no fake state, the detour is a real graph path.
+    clock_state, clock = _fake_clock()
+    sim = Simulator(heartbeat_timeout=5.0, clock=clock)
+
+    # Claim D2 (degree-3) so removing it keeps the swarm connected.
+    sim.command("heartbeat", "D2")
+    state = sim.tick()
+    d2 = next(n for n in state["nodes"] if n["id"] == "D2")
+    assert d2["status"] == "healthy"  # alive while heartbeats are fresh
+
+    # Heartbeats lapse past the timeout.
+    clock_state["t"] += 6.0
+    state = sim.tick()
+
+    d2 = next(n for n in state["nodes"] if n["id"] == "D2")
+    assert d2["status"] != "healthy"  # node is down / off the swarm
+    assert "D2" in sim.down_nodes
+    # Incident links are severed (down), not flagged as ML attacks.
+    incident = [l for l in state["links"] if "D2" in (l["source"], l["target"])]
+    assert incident and all(l["status"] == "down" for l in incident)
+    # Real self-heal: blue rerouted links appear and a reroute event fires.
+    assert any(l["status"] == "rerouted" for l in state["links"])
+    assert any(e["kind"] == "reroute" for e in state["events"])
+    # The node-down was announced as a heartbeat loss, not a cyber attack.
+    assert any(
+        e["kind"] == "detection" and "heartbeat" in e["message"].lower()
+        for e in state["events"]
+    )
+    assert state["threat_level"] != "NOMINAL"
+
+
+def test_fresh_heartbeats_keep_a_node_alive():
+    # Re-sending heartbeats before the timeout keeps the node healthy forever.
+    clock_state, clock = _fake_clock()
+    sim = Simulator(heartbeat_timeout=5.0, clock=clock)
+    for _ in range(4):
+        sim.command("heartbeat", "D2")
+        clock_state["t"] += 2.0  # well under the 5s timeout each interval
+        state = sim.tick()
+    assert sim.down_nodes == set()
+    d2 = next(n for n in state["nodes"] if n["id"] == "D2")
+    assert d2["status"] == "healthy"
+
+
+def test_heartbeat_resume_revives_a_downed_node():
+    # After a node drops, a new heartbeat brings it back and the swarm reconverges.
+    clock_state, clock = _fake_clock()
+    sim = Simulator(heartbeat_timeout=5.0, clock=clock)
+    sim.command("heartbeat", "D2")
+    clock_state["t"] += 6.0
+    sim.tick()
+    assert "D2" in sim.down_nodes
+
+    clock_state["t"] += 1.0
+    sim.command("heartbeat", "D2")
+    state = sim.tick()
+    assert "D2" not in sim.down_nodes
+    d2 = next(n for n in state["nodes"] if n["id"] == "D2")
+    assert d2["status"] == "healthy"
+    assert all(l["status"] != "down" for l in state["links"])
+    assert any(e["kind"] == "recovery" for e in state["events"])
+
+
+def test_unclaimed_nodes_are_immune_to_heartbeat_timeout():
+    # Only nodes a client has claimed via heartbeat can go down this way; the
+    # built-in swarm drones (which never heartbeat) are never affected by time.
+    clock_state, clock = _fake_clock()
+    sim = Simulator(heartbeat_timeout=1.0, clock=clock)
+    clock_state["t"] += 100.0
+    state = sim.tick()
+    assert sim.down_nodes == set()
+    assert all(n["status"] == "healthy" for n in state["nodes"])
+    assert state["threat_level"] == "NOMINAL"
+
+
+def test_reset_clears_heartbeat_down_state():
+    clock_state, clock = _fake_clock()
+    sim = Simulator(heartbeat_timeout=5.0, clock=clock)
+    sim.command("heartbeat", "D2")
+    clock_state["t"] += 6.0
+    sim.tick()
+    assert "D2" in sim.down_nodes
+    sim.command("reset", None)
+    state = sim.tick()
+    assert sim.down_nodes == set()
+    assert sim._heartbeats == {}
+    assert all(n["status"] == "healthy" for n in state["nodes"])
+    assert all(l["status"] == "healthy" for l in state["links"])
+    assert state["threat_level"] == "NOMINAL"
