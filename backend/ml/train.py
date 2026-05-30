@@ -27,6 +27,10 @@ import sys
 import zipfile
 from typing import Dict, List, Optional
 
+# Make `import ml.*` work when run directly as `python ml/train.py` (script dir,
+# not backend/, is what Python puts on sys.path[0]).
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -244,10 +248,15 @@ def train_models(X_train, X_test, y_train, y_test):
 
     results = []
 
-    # 1) Logistic Regression
-    logreg = LogisticRegression(max_iter=2000, n_jobs=-1, multi_class="auto")
-    logreg.fit(X_train, y_train)
-    results.append(("LogisticRegression", logreg, list(logreg.classes_), logreg.predict(X_test)))
+    # 1) Logistic Regression. A couple of CIC features are heavy-tailed, so the
+    # LBFGS line search probes large weights and trips harmless float-overflow
+    # flags in the matmul; the fit still converges. Silence those cosmetic
+    # numpy FP warnings for fit + predict.
+    logreg = LogisticRegression(max_iter=2000)
+    with np.errstate(all="ignore"):
+        logreg.fit(X_train, y_train)
+        logreg_pred = logreg.predict(X_test)
+    results.append(("LogisticRegression", logreg, list(logreg.classes_), logreg_pred))
 
     # 2) Random Forest
     rf = RandomForestClassifier(
@@ -301,7 +310,10 @@ def write_sample_csv(df: pd.DataFrame) -> None:
         parts.append(grp.sample(n=min(n, len(grp)), random_state=RANDOM_STATE))
     sample = pd.concat(parts, ignore_index=True)
     sample = sample.sample(frac=1.0, random_state=RANDOM_STATE).reset_index(drop=True)
-    sample = sample[FEATURE_COLUMNS + ["label"]].round(4)
+    # Keep FULL precision: the CIC-IDS-2017 V2 features are min-max normalized
+    # and heavily compressed near zero (median flow_duration ~4e-4), so rounding
+    # collapses the very structure the trees split on. No .round() here.
+    sample = sample[FEATURE_COLUMNS + ["label"]]
     os.makedirs(os.path.dirname(SAMPLE_CSV), exist_ok=True)
     sample.to_csv(SAMPLE_CSV, index=False)
     print(f"[sample] wrote {len(sample)} rows -> {os.path.relpath(SAMPLE_CSV, BACKEND)}")

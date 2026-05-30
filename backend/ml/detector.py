@@ -37,10 +37,12 @@ class Detector:
     def _vectorize(self, features: Dict[str, float]) -> np.ndarray:
         """Build a 1-row matrix in the trained column order, scaled if needed."""
         row = pd.DataFrame([[float(features[c]) for c in self.columns]], columns=self.columns)
-        X = row.values
+        # The scaler was fit on a named DataFrame, so transform a named DataFrame
+        # (not a bare ndarray) to keep column alignment explicit and avoid
+        # sklearn's feature-name warning.
         if self.scaler is not None:
-            X = self.scaler.transform(X)
-        return X
+            return np.asarray(self.scaler.transform(row))
+        return row.values
 
     def predict(self, features: Dict[str, float]) -> Dict[str, object]:
         """Score one feature dict (keys must include every FEATURE_COLUMNS entry)."""
