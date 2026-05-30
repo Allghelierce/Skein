@@ -50,6 +50,9 @@ function DecodeText({ text, durationMs = 500 }: { text: string; durationMs?: num
       setOut(text);
       return;
     }
+    // each slot locks at a RANDOM point in the back half, so every letter churns
+    // rapidly at once and snaps in out of order — a chaotic decode, not a wipe.
+    const lockAt = text.split("").map(() => 0.4 + Math.random() * 0.55);
     let raf = 0;
     let start = 0;
     const step = (now: number) => {
@@ -58,13 +61,13 @@ function DecodeText({ text, durationMs = 500 }: { text: string; durationMs?: num
       setOut(
         text
           .split("")
-          .map((ch, i) => {
-            if (ch === " ") return " ";
-            // letter i locks once the wave passes it (slot 0 first, last slot at t=1)
-            return t >= (i + 1) / text.length
-              ? ch
-              : DECODE_GLYPHS[Math.floor(Math.random() * DECODE_GLYPHS.length)];
-          })
+          .map((ch, i) =>
+            ch === " "
+              ? " "
+              : t >= lockAt[i]
+                ? ch
+                : DECODE_GLYPHS[Math.floor(Math.random() * DECODE_GLYPHS.length)],
+          )
           .join(""),
       );
       if (t < 1) raf = requestAnimationFrame(step);
@@ -116,11 +119,18 @@ export function BootScreen() {
           mesh defense system
         </div>
 
-        {/* scan bar */}
-        <div className="mx-auto mt-7 h-px w-full overflow-hidden bg-line">
+        {/* loading bar — green fills the track left-to-right over the boot */}
+        <div
+          className="mx-auto mt-7 h-[3px] w-full overflow-hidden rounded-full"
+          style={{ background: "rgba(255,255,255,0.06)" }}
+        >
           <div
-            className="boot-bar h-full"
-            style={{ ["--boot-dur" as string]: bootDur, background: HEX.green, boxShadow: `0 0 8px ${HEX.green}` }}
+            className="boot-bar h-full rounded-full"
+            style={{
+              ["--boot-dur" as string]: bootDur,
+              background: `linear-gradient(90deg, ${HEX.green}80, ${HEX.green})`,
+              boxShadow: `0 0 10px ${HEX.green}`,
+            }}
           />
         </div>
 
