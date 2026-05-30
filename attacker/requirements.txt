@@ -1,0 +1,4 @@
+# Offense console only needs a WebSocket client. The backend venv already has
+# `websockets` (pulled in by uvicorn[standard]); installing it here lets the
+# attacker run on a second laptop that never installed the ML/backend stack.
+websockets>=13,<17

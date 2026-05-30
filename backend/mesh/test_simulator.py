@@ -18,7 +18,7 @@ def test_tick_returns_state_message_shape():
     # nodes
     for n in state["nodes"]:
         assert set(n) == {"id", "x", "y", "status"}
-        assert n["status"] in ("healthy", "attacked", "defending", "isolated")
+        assert n["status"] in ("healthy", "attacked", "defending", "isolated", "down")
     # links
     for l in state["links"]:
         assert set(l) == {
