@@ -24,6 +24,7 @@ import {
   type Node,
   type NodeMouseHandler,
   type NodeProps,
+  type OnNodesChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { motion } from "framer-motion";
@@ -666,11 +667,33 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
   const hopDelays = useMemo(() => computeHopDelays(state?.links ?? []), [state?.links]);
   const riskMap = useMemo(() => computeRisk(state), [state]);
 
+  // manual drag positions — judges can grab and rearrange the formation; the
+  // override sticks across the 1s state ticks so a dragged drone stays put.
+  const [posOverride, setPosOverride] = useState<Map<string, { x: number; y: number }>>(new Map());
+  const draggingRef = useRef(false);
+  const onNodesChange = useCallback<OnNodesChange<DroneNode>>((changes) => {
+    setPosOverride((prev) => {
+      let next: Map<string, { x: number; y: number }> | null = null;
+      for (const c of changes) {
+        if (c.type === "position") {
+          if (c.dragging !== undefined) draggingRef.current = c.dragging;
+          if (c.position) {
+            if (!next) next = new Map(prev);
+            next.set(c.id, c.position);
+          }
+        }
+      }
+      return next ?? prev;
+    });
+  }, []);
+
   const nodes: DroneNode[] = useMemo(() => {
-    return (state?.nodes ?? []).map((n) => ({
+    return (state?.nodes ?? []).map((n) => {
+      const ov = posOverride.get(n.id);
+      return {
       id: n.id,
       type: "drone",
-      position: { x: n.x * CANVAS_W, y: n.y * CANVAS_H },
+      position: ov ?? { x: n.x * CANVAS_W, y: n.y * CANVAS_H },
       data: {
         label: n.id,
         status: n.status,
@@ -679,9 +702,10 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
         combat,
         risk: riskMap.get(n.id) ?? 0,
       },
-      draggable: false,
-    }));
-  }, [state?.nodes, selected, isolated, combat, riskMap]);
+      draggable: true,
+      };
+    });
+  }, [state?.nodes, selected, isolated, combat, riskMap, posOverride]);
 
   const edges: DataEdge[] = useMemo(() => {
     return (state?.links ?? []).map((l) => {
@@ -766,6 +790,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          onNodesChange={onNodesChange}
           onNodeClick={onNodeClick}
           onEdgeClick={onEdgeClick}
           onPaneClick={onPaneClick}
@@ -775,7 +800,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           onEdgeMouseLeave={clearHover}
           fitView
           fitViewOptions={{ padding: 0.16 }}
-          nodesDraggable={false}
+          nodesDraggable
           nodesConnectable={false}
           panOnDrag={false}
           zoomOnScroll={false}
