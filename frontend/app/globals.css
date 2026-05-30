@@ -117,13 +117,16 @@ body {
 @keyframes dash-flow { to { stroke-dashoffset: -24; } }
 .edge-reroute { stroke-dasharray: 7 5; animation: dash-flow 0.5s linear infinite; }
 
-/* slow terrain drift so the swarm reads as flying over the ground */
-@keyframes terrain-drift {
-  0% { transform: translate3d(0, 0, 0) scale(1.02); }
-  50% { transform: translate3d(-2.2%, -1.4%, 0) scale(1.05); }
-  100% { transform: translate3d(0, 0, 0) scale(1.02); }
+/* continuous downward terrain scroll so the swarm reads as flying forward.
+   two identical stacked tiles -> -50% lands exactly on the next tile = seamless. */
+@keyframes terrain-scroll {
+  from { transform: translate3d(0, -50%, 0); }
+  to { transform: translate3d(0, 0, 0); }
 }
-.terrain-drift { animation: terrain-drift 60s ease-in-out infinite; will-change: transform; }
+.terrain-scroll {
+  animation: terrain-scroll 26s linear infinite;
+  will-change: transform;
+}
 
 /* thin scrollbar */
 .scroll-thin::-webkit-scrollbar { width: 5px; }

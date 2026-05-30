@@ -146,10 +146,12 @@ function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEd
   const width = (jammed ? 1.8 : rerouted ? 2.8 : 1.1) + (selected ? 1 : 0);
   const opacity = jammed || rerouted ? 1 : active ? 0.6 : 0.42;
 
-  // always-on traffic: every link carries a packet so the swarm reads "alive".
-  const packetColor = jammed ? HEX.red : rerouted ? HEX.green : active ? HEX.dim : "#52525b";
-  const packetOpacity = jammed || rerouted ? 1 : active ? 0.6 : 0.32;
-  const dur = jammed ? "0.8s" : rerouted ? "0.7s" : active ? "2s" : "3s";
+  // always-on traffic: every link carries a visible packet so the swarm reads
+  // "alive" — soft green data on quiet links, red/green during combat.
+  const packetColor = jammed ? HEX.red : rerouted ? HEX.green : "#4fae86";
+  const packetOpacity = jammed || rerouted ? 1 : active ? 0.9 : 0.55;
+  const packetR = jammed ? 2 : rerouted ? 3 : active ? 2.3 : 1.9;
+  const dur = jammed ? "0.8s" : rerouted ? "0.7s" : active ? "1.5s" : "2.4s";
 
   // per-link confidence label, shown for every link every tick
   const labelColor = jammed ? HEX.red : rerouted ? HEX.green : HEX.faint;
@@ -170,7 +172,7 @@ function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEd
               : undefined,
         }}
       />
-      <circle r={rerouted ? 3 : 1.7} fill={packetColor} opacity={packetOpacity}>
+      <circle r={packetR} fill={packetColor} opacity={packetOpacity} style={{ filter: `drop-shadow(0 0 3px ${packetColor})` }}>
         <animateMotion dur={dur} repeatCount="indefinite" path={path} />
       </circle>
       <EdgeLabelRenderer>
@@ -196,50 +198,53 @@ function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEd
 const nodeTypes = { drone: DroneNode };
 const edgeTypes = { data: DataEdge };
 
-/* Topographic terrain field: procedural elevation tint + contour lines (SVG
-   turbulence), drifting slowly so the swarm reads as flying over the ground. */
+/* Topographic terrain: hillshaded relief (diffuse lighting on a procedural
+   height field) for real depth, plus thin iso-contour lines on top. Two stacked,
+   identical, self-tiling tiles scroll continuously DOWNWARD so the swarm reads as
+   flying forward over passing ground — the loop is seamless because the tiles match. */
+function TerrainTile() {
+  return (
+    <svg className="block h-1/2 w-full" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100%" height="100%" filter="url(#skein-terrain)" />
+    </svg>
+  );
+}
+
 function MapField() {
   return (
     <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-      {/* terrain (oversized + slowly drifting) */}
-      <svg
-        className="terrain-drift absolute"
-        style={{ left: "-15%", top: "-15%", width: "130%", height: "130%", opacity: 0.7 }}
-        xmlns="http://www.w3.org/2000/svg"
-      >
+      {/* shared terrain filter */}
+      <svg width="0" height="0" className="absolute" aria-hidden>
         <defs>
-          {/* soft elevation mass for depth */}
-          <filter id="terrain-mass" x="-20%" y="-20%" width="140%" height="140%">
+          <filter id="skein-terrain" x="0" y="0" width="100%" height="100%">
             <feTurbulence
               type="fractalNoise"
-              baseFrequency="0.0055"
-              numOctaves={4}
-              seed={27}
+              baseFrequency="0.004"
+              numOctaves={5}
+              seed={11}
               stitchTiles="stitch"
-              result="n"
+              result="noise"
             />
+            {/* height map (alpha) drives the lighting bump */}
             <feColorMatrix
-              in="n"
+              in="noise"
               type="matrix"
-              values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.6 0 0 0 -0.18"
-              result="a"
+              values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0"
+              result="height"
             />
-            <feFlood floodColor="#0a130e" result="c" />
-            <feComposite in="c" in2="a" operator="in" />
-          </filter>
-          {/* thin iso-contour lines: step the height into elevation bands, then
-              edge-detect the band boundaries so lines stay uniformly thin. */}
-          <filter id="terrain-lines" x="-20%" y="-20%" width="140%" height="140%">
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.0055"
-              numOctaves={4}
-              seed={27}
-              stitchTiles="stitch"
-              result="n"
-            />
+            {/* shaded relief = depth + elevation */}
+            <feDiffuseLighting
+              in="height"
+              surfaceScale="6"
+              diffuseConstant="1"
+              lightingColor="#1a6248"
+              result="relief"
+            >
+              <feDistantLight azimuth="235" elevation="44" />
+            </feDiffuseLighting>
+            {/* contour lines: step height into bands then edge-detect boundaries */}
             <feColorMatrix
-              in="n"
+              in="noise"
               type="matrix"
               values="1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 0 1"
               result="gray"
@@ -253,6 +258,7 @@ function MapField() {
               in="stepped"
               order="3"
               preserveAlpha="true"
+              edgeMode="wrap"
               kernelMatrix="0 -1 0 -1 4 -1 0 -1 0"
               result="edges"
             />
@@ -262,20 +268,32 @@ function MapField() {
               values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 1 1 0 0"
               result="lineAlpha"
             />
-            <feFlood floodColor="#2ee27a" result="line" />
-            <feComposite in="line" in2="lineAlpha" operator="in" />
+            <feFlood floodColor="#5affb0" result="line" />
+            <feComposite in="line" in2="lineAlpha" operator="in" result="lines" />
+            {/* relief (dimmed) under the contour lines */}
+            <feComponentTransfer in="relief" result="reliefDim">
+              <feFuncA type="linear" slope="0.55" />
+            </feComponentTransfer>
+            <feMerge>
+              <feMergeNode in="reliefDim" />
+              <feMergeNode in="lines" />
+            </feMerge>
           </filter>
         </defs>
-        <rect width="100%" height="100%" filter="url(#terrain-mass)" opacity={0.5} />
-        <rect width="100%" height="100%" filter="url(#terrain-lines)" opacity={0.4} />
       </svg>
+
+      {/* two identical tiles, scrolling down for a forward-flight feel */}
+      <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.4 }}>
+        <TerrainTile />
+        <TerrainTile />
+      </div>
 
       {/* vignette to focus the swarm */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(125% 125% at 50% 47%, transparent 36%, rgba(3,7,11,0.92) 100%)",
+            "radial-gradient(125% 125% at 50% 47%, transparent 34%, rgba(3,7,11,0.93) 100%)",
         }}
       />
     </div>
