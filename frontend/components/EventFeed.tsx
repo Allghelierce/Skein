@@ -3,7 +3,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import type { StateMessage, SwarmEvent } from "@/lib/types";
-import { EVENT_COLOR } from "@/lib/palette";
+import { EVENT_COLOR, HEX } from "@/lib/palette";
 import { HudFrame } from "@/components/Hud";
 
 interface Props {
@@ -11,10 +11,10 @@ interface Props {
 }
 
 const KIND_LABEL: Record<SwarmEvent["kind"], string> = {
-  detection: "DETECT",
-  reroute: "REROUTE",
-  recovery: "RESTORE",
-  info: "SYS",
+  detection: "Detection",
+  reroute: "Reroute",
+  recovery: "Recovery",
+  info: "System",
 };
 
 export function EventFeed({ state }: Props) {
@@ -22,20 +22,14 @@ export function EventFeed({ state }: Props) {
 
   return (
     <HudFrame
-      title="Event Feed"
+      title="Activity"
       className="flex min-h-0 flex-1 flex-col"
-      right={
-        <span className="font-display text-[0.55rem] tracking-[0.18em] text-ink-faint">
-          {String(events.length).padStart(2, "0")} LOGGED
-        </span>
-      }
+      right={<span className="text-[0.68rem] text-ink-faint tabular-nums">{events.length}</span>}
     >
-      <div className="scroll-thin flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3 pt-2.5">
+      <div className="scroll-thin flex min-h-0 flex-1 flex-col overflow-y-auto">
         <AnimatePresence initial={false}>
           {events.length === 0 && (
-            <p className="font-display text-[0.62rem] tracking-widest text-ink-faint">
-              AWAITING TELEMETRY…
-            </p>
+            <p className="px-4 py-3 text-xs text-ink-faint">Awaiting telemetry…</p>
           )}
           {events.map((e, i) => {
             const color = EVENT_COLOR[e.kind] ?? EVENT_COLOR.info;
@@ -43,23 +37,25 @@ export function EventFeed({ state }: Props) {
               <motion.div
                 key={`${e.t}-${e.kind}-${i}-${e.message.slice(0, 12)}`}
                 layout
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.22 }}
-                className="grid grid-cols-[auto_auto_1fr] items-start gap-2 border-l-2 bg-bg-soft px-2 py-1.5"
-                style={{ borderColor: color }}
+                transition={{ duration: 0.2 }}
+                className="flex items-start gap-3 border-b border-line-soft px-4 py-2.5 last:border-b-0"
               >
-                <span className="mt-px font-mono text-[0.58rem] tabular-nums text-ink-faint">
-                  {e.t}
-                </span>
                 <span
-                  className="px-1.5 font-display text-[0.5rem] font-bold tracking-[0.12em]"
-                  style={{ color }}
-                >
-                  {KIND_LABEL[e.kind]}
-                </span>
-                <span className="text-[0.72rem] leading-snug text-ink">{e.message}</span>
+                  className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ background: color }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium" style={{ color }}>
+                      {KIND_LABEL[e.kind]}
+                    </span>
+                    <span className="mono text-[0.62rem] tabular-nums text-ink-faint">{e.t}</span>
+                  </div>
+                  <p className="mt-0.5 text-[0.78rem] leading-snug text-ink-dim">{e.message}</p>
+                </div>
               </motion.div>
             );
           })}

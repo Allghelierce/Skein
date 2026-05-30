@@ -18,60 +18,61 @@ export function AttackControls({ selected, send }: Props) {
 
   const selectionLabel =
     selected?.kind === "link"
-      ? `LINK ${selected.id}`
+      ? `Link ${selected.id}`
       : selected?.kind === "node"
-        ? `DRONE ${selected.id}`
-        : "NONE";
+        ? `Drone ${selected.id}`
+        : "None";
 
   return (
-    <footer className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-panel px-5 py-2.5">
+    <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-bg px-5 py-3">
       <div className="flex items-center gap-3">
-        <span className="panel-title">Attack Controls</span>
-        <span className="flex items-center gap-2 border border-line-soft bg-bg-soft px-2.5 py-1">
-          <span className="panel-title text-[0.5rem]">Target</span>
-          <span
-            className="font-display text-[0.72rem] font-bold tracking-wider"
-            style={{ color: selected ? HEX.green : HEX.dim }}
-          >
-            {selectionLabel}
-          </span>
+        <span className="label-xs">Selection</span>
+        <span
+          className="text-sm font-medium"
+          style={{ color: selected ? HEX.ink : HEX.faint }}
+        >
+          {selectionLabel}
         </span>
-        <span className="hidden font-display text-[0.55rem] tracking-[0.18em] text-ink-faint lg:inline">
-          SELECT A UNIT ON THE PLOT, THEN ACT
+        <span className="hidden text-xs text-ink-faint lg:inline">
+          · pick a unit on the map, then act
         </span>
       </div>
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
         <button
           type="button"
-          className="tac-btn"
-          style={{ color: HEX.red, borderColor: `${HEX.red}66` }}
+          className="btn"
+          style={linkId ? { color: HEX.red, borderColor: `${HEX.red}55` } : undefined}
           disabled={!linkId}
           onClick={() => linkId && send({ type: "command", action: "jam", target: linkId })}
           title="Simulate RF jamming on the selected link"
         >
-          Jam Link
+          <Dot color={HEX.red} /> Jam link
         </button>
         <button
           type="button"
-          className="tac-btn"
-          style={{ color: HEX.red, borderColor: `${HEX.red}66` }}
+          className="btn"
+          style={nodeId ? { color: HEX.red, borderColor: `${HEX.red}55` } : undefined}
           disabled={!nodeId}
           onClick={() => nodeId && send({ type: "command", action: "hack", target: nodeId })}
           title="Compromise the selected drone"
         >
-          Hack Drone
+          <Dot color={HEX.red} /> Hack drone
         </button>
         <button
           type="button"
-          className="tac-btn"
-          style={{ color: HEX.green, borderColor: `${HEX.green}66` }}
+          className="btn"
+          style={{ color: HEX.green, borderColor: `${HEX.green}55` }}
           onClick={() => send({ type: "command", action: "reset", target: null })}
           title="Restore the whole swarm"
         >
-          Reset
+          <Dot color={HEX.green} /> Reset
         </button>
       </div>
     </footer>
   );
+}
+
+function Dot({ color }: { color: string }) {
+  return <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />;
 }

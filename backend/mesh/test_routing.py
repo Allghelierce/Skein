@@ -1,5 +1,5 @@
 from mesh.graph import SwarmGraph
-from mesh.routing import shortest_path
+from mesh.routing import components, shortest_path
 
 
 def test_direct_path_is_the_link_itself():
@@ -36,3 +36,22 @@ def test_partition_returns_none():
     # Avoid every link -> graph has no edges -> no path.
     all_links = {l.id for l in g.links}
     assert shortest_path(g, a, b, avoid=all_links) is None
+
+
+def test_routes_around_a_removed_node():
+    g = SwarmGraph()
+    # D1's neighbours are D2 and D7. Removing D2 should force D1->D3 to detour
+    # around D2 entirely (D2 never appears in the path).
+    path = shortest_path(g, "D1", "D3", avoid_nodes={"D2"})
+    assert path is not None
+    assert "D2" not in path
+    assert path[0] == "D1" and path[-1] == "D3"
+
+
+def test_isolated_node_falls_out_of_main_component():
+    g = SwarmGraph()
+    # D1's only neighbours are D2 and D7. Quarantine both -> D1 is cut off.
+    comps = components(g, avoid_nodes={"D2", "D7"})
+    main = comps[0]
+    assert "D1" not in main
+    assert any(c == {"D1"} for c in comps)

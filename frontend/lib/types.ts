@@ -3,7 +3,7 @@
 // accept `command` messages in exactly this shape. Do not redefine these types
 // elsewhere; import from here.
 
-export type NodeStatus = "healthy" | "attacked" | "defending";
+export type NodeStatus = "healthy" | "attacked" | "defending" | "isolated";
 export type LinkStatus = "healthy" | "jammed" | "rerouted" | "down";
 export type ThreatLevel = "NOMINAL" | "ELEVATED" | "CRITICAL";
 
@@ -24,6 +24,15 @@ export interface SwarmNode {
 // Used by the raw-data scope panel to show real numbers -> prediction.
 export type LinkFeatures = Record<string, number>;
 
+// One feature that drove a detection (why-it-flagged).
+export interface Reason {
+  feature: string;
+  value: number;
+  baseline: number;
+  z_score: number;
+  direction: "high" | "low";
+}
+
 export interface SwarmLink {
   id: string; // "D1-D2"
   source: string;
@@ -32,6 +41,7 @@ export interface SwarmLink {
   active: boolean; // currently carrying traffic
   prediction: Prediction;
   features: LinkFeatures; // raw CIC feature values scored this tick
+  reasons: Reason[]; // top features explaining the verdict
 }
 
 export interface SwarmEvent {
@@ -49,10 +59,10 @@ export interface StateMessage {
   events: SwarmEvent[]; // newest-first, last ~20
 }
 
-export type CommandAction = "jam" | "hack" | "reset";
+export type CommandAction = "jam" | "hack" | "stealth" | "reset";
 
 export interface CommandMessage {
   type: "command";
   action: CommandAction;
-  target: string | null; // link id for "jam", node id for "hack", null for "reset"
+  target: string | null; // link id for jam/stealth, node id for hack, null for reset
 }

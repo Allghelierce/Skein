@@ -8,6 +8,7 @@
 // stand-ins. In live mode the real backend + trained model drive everything.
 
 import type {
+  LinkFeatures,
   LinkStatus,
   NodeStatus,
   Prediction,
@@ -17,6 +18,7 @@ import type {
   SwarmNode,
   ThreatLevel,
 } from "./types";
+import { computeReasons, type NormReason } from "./reasons";
 
 // Deterministic-ish PRNG so the mock looks lively without Math.random surprises.
 let seed = 1337;
@@ -28,28 +30,49 @@ function between(lo: number, hi: number): number {
   return lo + rnd() * (hi - lo);
 }
 
-// ── Fixed topology: 7 drones, redundant mesh so reroutes always have a path ──
-const NODE_LAYOUT: { id: string; x: number; y: number }[] = [
-  { id: "D1", x: 0.16, y: 0.26 },
-  { id: "D2", x: 0.5, y: 0.12 },
-  { id: "D3", x: 0.84, y: 0.26 },
-  { id: "D4", x: 0.2, y: 0.74 },
-  { id: "D5", x: 0.5, y: 0.9 },
-  { id: "D6", x: 0.8, y: 0.74 },
-  { id: "D7", x: 0.5, y: 0.5 }, // central relay hub
+// ── Topology: concentric-ring swarm (1 hub + inner ring + outer ring). Built by
+//    a generator so the count is easy to tune. Spokes, ring adjacency, and radial
+//    links give a dense, symmetric, redundant mesh so a reroute always exists. ──
+const RINGS: { count: number; r: number; offsetDeg: number }[] = [
+  { count: 1, r: 0, offsetDeg: 0 }, // hub
+  { count: 6, r: 0.22, offsetDeg: -90 }, // inner ring
+  { count: 12, r: 0.43, offsetDeg: -90 }, // outer ring
 ];
 
-const EDGES: [string, string][] = [
-  ["D1", "D2"],
-  ["D2", "D3"],
-  ["D3", "D6"],
-  ["D5", "D6"],
-  ["D4", "D5"],
-  ["D1", "D4"],
-  ["D1", "D7"],
-  ["D3", "D7"],
-  ["D5", "D7"],
-];
+function buildTopology() {
+  const layout: { id: string; x: number; y: number }[] = [];
+  const ringIds: string[][] = [];
+  let n = 1;
+  for (const ring of RINGS) {
+    const ids: string[] = [];
+    for (let i = 0; i < ring.count; i++) {
+      const id = `D${n++}`;
+      ids.push(id);
+      if (ring.r === 0) {
+        layout.push({ id, x: 0.5, y: 0.5 });
+      } else {
+        const a = ((ring.offsetDeg + (360 / ring.count) * i) * Math.PI) / 180;
+        layout.push({ id, x: 0.5 + ring.r * Math.cos(a), y: 0.5 + ring.r * Math.sin(a) });
+      }
+    }
+    ringIds.push(ids);
+  }
+
+  const edges: [string, string][] = [];
+  const [hub, inner, outer] = ringIds;
+  // hub → inner spokes
+  for (const id of inner) edges.push([hub[0], id]);
+  // ring adjacency (inner + outer)
+  for (const ring of [inner, outer]) {
+    for (let i = 0; i < ring.length; i++) edges.push([ring[i], ring[(i + 1) % ring.length]]);
+  }
+  // radial: each outer node links to its nearest inner node
+  const ratio = outer.length / inner.length;
+  for (let i = 0; i < outer.length; i++) edges.push([outer[i], inner[Math.floor(i / ratio)]]);
+  return { layout, edges };
+}
+
+const { layout: NODE_LAYOUT, edges: EDGES } = buildTopology();
 
 export function linkId(a: string, b: string): string {
   return [a, b].sort().join("-");
@@ -83,6 +106,68 @@ function attackPrediction(kind: AttackKind): Prediction {
   return { label: kind, attack_type: kind, confidence: between(0.88, 0.985) };
 }
 
+// Plausible raw CIC flow values per class. Mirrors how the real CIC rows look
+// (DoS floods, PortScan = many tiny fwd packets, etc.) so the scope reads true.
+// These are stand-ins for MOCK mode; live mode streams the real scored rows.
+function featuresFor(label: string): LinkFeatures {
+  if (label === "DoS") {
+    const pkts = between(9000, 38000);
+    return {
+      flow_duration: between(2e3, 4e4),
+      total_fwd_packets: between(4000, 22000),
+      total_bwd_packets: between(80, 900),
+      flow_bytes_s: between(1.4e6, 7.5e6),
+      flow_packets_s: pkts,
+      flow_iat_mean: between(20, 140),
+      fwd_pkt_len_mean: between(60, 240),
+      bwd_pkt_len_mean: between(0, 60),
+      pkt_len_mean: between(60, 220),
+      avg_pkt_size: between(70, 230),
+    };
+  }
+  if (label === "PortScan") {
+    return {
+      flow_duration: between(40, 4000),
+      total_fwd_packets: between(1, 6),
+      total_bwd_packets: between(0, 2),
+      flow_bytes_s: between(200, 6000),
+      flow_packets_s: between(1800, 9000),
+      flow_iat_mean: between(2, 60),
+      fwd_pkt_len_mean: between(0, 40),
+      bwd_pkt_len_mean: between(0, 12),
+      pkt_len_mean: between(0, 40),
+      avg_pkt_size: between(0, 44),
+    };
+  }
+  if (label === "BruteForce") {
+    return {
+      flow_duration: between(2e5, 5e6),
+      total_fwd_packets: between(8, 40),
+      total_bwd_packets: between(8, 40),
+      flow_bytes_s: between(2e4, 1.6e5),
+      flow_packets_s: between(280, 1500),
+      flow_iat_mean: between(2e3, 4e4),
+      fwd_pkt_len_mean: between(20, 120),
+      bwd_pkt_len_mean: between(40, 220),
+      pkt_len_mean: between(30, 160),
+      avg_pkt_size: between(40, 180),
+    };
+  }
+  // BENIGN: low, steady traffic
+  return {
+    flow_duration: between(1e4, 1.2e6),
+    total_fwd_packets: between(4, 60),
+    total_bwd_packets: between(4, 60),
+    flow_bytes_s: between(1.5e3, 6e4),
+    flow_packets_s: between(12, 260),
+    flow_iat_mean: between(5e2, 6e4),
+    fwd_pkt_len_mean: between(40, 320),
+    bwd_pkt_len_mean: between(40, 480),
+    pkt_len_mean: between(60, 420),
+    avg_pkt_size: between(70, 460),
+  };
+}
+
 export class MockEngine {
   private tick = 0;
   private nodeStatus = new Map<string, NodeStatus>();
@@ -111,7 +196,7 @@ export class MockEngine {
     return this.snapshot();
   }
 
-  command(action: "jam" | "hack" | "reset", target: string | null): StateMessage {
+  command(action: "jam" | "hack" | "reset" | "stealth", target: string | null): StateMessage {
     if (action === "reset") {
       this.reset(true);
       return this.snapshot();
@@ -151,7 +236,7 @@ export class MockEngine {
       this.pushEvent("recovery", "All links restored — swarm nominal.");
     } else {
       this.events = [];
-      this.pushEvent("info", "Swarm online — 7 drones, mesh nominal.");
+      this.pushEvent("info", `Swarm online — ${NODE_LAYOUT.length} drones, mesh nominal.`);
     }
   }
 
@@ -190,6 +275,7 @@ export class MockEngine {
         }
       }
     }
+    this.pushEvent("reroute", `Quarantining ${target} — isolating unit, traffic routes around it.`);
   }
 
   // Real self-healing: any traffic that would cross a jammed link gets a fresh
@@ -210,6 +296,14 @@ export class MockEngine {
     const reroutedLinks = new Set<string>();
     for (const link of this.links.values()) {
       if (link.status !== "jammed") continue;
+      // A hacked node is intentionally quarantined — its own links aren't
+      // rerouted (that would defeat the isolation); other traffic routes around.
+      if (
+        this.nodeStatus.get(link.source) === "attacked" ||
+        this.nodeStatus.get(link.target) === "attacked"
+      ) {
+        continue;
+      }
       const path = this.bfs(link.source, link.target, dead);
       if (!path) {
         this.pushEvent(
@@ -287,14 +381,27 @@ export class MockEngine {
       y: n.y,
       status: this.nodeStatus.get(n.id) ?? "healthy",
     }));
-    const links: SwarmLink[] = [...this.links.values()].map((l) => ({
-      id: l.id,
-      source: l.source,
-      target: l.target,
-      status: l.status,
-      active: l.status === "healthy" ? rnd() > 0.45 : true,
-      prediction: this.predictions.get(l.id) ?? benignPrediction(),
-    }));
+    // ScoredLink rides an optional `reasons` field alongside the contract shape;
+    // the real backend will add it to the contract soon, the UI reads it either way.
+    const links: SwarmLink[] = [...this.links.values()].map((l) => {
+      const prediction = this.predictions.get(l.id) ?? benignPrediction();
+      const features = featuresFor(prediction.label);
+      const reasons = prediction.attack_type
+        ? computeReasons(features, prediction.label)
+        : [];
+      const scored: SwarmLink = {
+        id: l.id,
+        source: l.source,
+        target: l.target,
+        status: l.status,
+        active: l.status === "healthy" ? rnd() > 0.45 : true,
+        prediction,
+        features,
+        // mock uses display-shaped reasons; UI reads them loosely via getReasons()
+        reasons: reasons as unknown as SwarmLink["reasons"],
+      };
+      return scored;
+    });
     return {
       type: "state",
       tick: this.tick,

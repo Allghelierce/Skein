@@ -47,44 +47,40 @@ def health() -> dict:
 
 async def _stream(ws: WebSocket) -> None:
     """Advance the world and push state to this client every tick."""
-    while True:
-        state = simulator.tick()
-        await ws.send_json(state)
-        await asyncio.sleep(TICK_SECONDS)
+    with contextlib.suppress(WebSocketDisconnect):
+        while True:
+            await ws.send_json(simulator.tick())
+            await asyncio.sleep(TICK_SECONDS)
 
 
 async def _receive(ws: WebSocket) -> None:
     """Apply incoming CommandMessages to the shared simulator."""
-    while True:
-        msg = await ws.receive_json()
-        if msg.get("type") == "command":
-            action = msg.get("action")
-            target = msg.get("target")
-            if action in ("jam", "hack", "reset"):
-                simulator.command(action, target)
+    with contextlib.suppress(WebSocketDisconnect):
+        while True:
+            msg = await ws.receive_json()
+            if msg.get("type") == "command":
+                action = msg.get("action")
+                target = msg.get("target")
+                if action in ("jam", "stealth", "hack", "reset"):
+                    simulator.command(action, target)
 
 
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket) -> None:
     await ws.accept()
     # Send an immediate first frame so the UI paints without waiting a tick.
-    await ws.send_json(simulator.tick())
+    with contextlib.suppress(WebSocketDisconnect):
+        await ws.send_json(simulator.tick())
 
     sender = asyncio.create_task(_stream(ws))
     receiver = asyncio.create_task(_receive(ws))
-    try:
-        done, pending = await asyncio.wait(
-            {sender, receiver}, return_when=asyncio.FIRST_COMPLETED
-        )
-        for task in pending:
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
-    except WebSocketDisconnect:
-        pass
-    finally:
-        for task in (sender, receiver):
-            if not task.done():
-                task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await task
+    # Whichever side ends first (usually the client disconnecting) tears down
+    # the other. Retrieve each task's result so no exception goes unhandled.
+    done, pending = await asyncio.wait(
+        {sender, receiver}, return_when=asyncio.FIRST_COMPLETED
+    )
+    for task in pending:
+        task.cancel()
+    for task in (*done, *pending):
+        with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect):
+            await task

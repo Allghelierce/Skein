@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
-import { Orbitron, Share_Tech_Mono } from "next/font/google";
+import { Chakra_Petch, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const orbitron = Orbitron({
-  variable: "--font-orbitron",
+// Chakra Petch = squared, technical, military-HUD feel for UI + labels.
+const chakra = Chakra_Petch({
+  variable: "--font-chakra",
   subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const shareTechMono = Share_Tech_Mono({
-  variable: "--font-share-tech",
+// JetBrains Mono = crisp tactical mono for the raw feature scope + telemetry.
+const jbMono = JetBrains_Mono({
+  variable: "--font-jbmono",
   subsets: ["latin"],
-  weight: "400",
 });
 
 export const metadata: Metadata = {
-  title: "SKEIN — Swarm Defense Command Center",
+  title: "Skein — Swarm Defense Command Center",
   description:
     "Self-healing drone-swarm mesh that detects jamming/cyber attacks with classic ML and reroutes around the damage in real time.",
 };
@@ -28,7 +29,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${orbitron.variable} ${shareTechMono.variable} h-full antialiased`}
+      className={`${chakra.variable} ${jbMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>
     </html>

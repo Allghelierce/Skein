@@ -30,13 +30,17 @@ from ml.schema import (
     FEATURE_COLUMNS,
 )
 from mesh.graph import SwarmGraph
-from mesh.routing import shortest_path
+from mesh.routing import components, shortest_path
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
 _SAMPLE_CSV = _BACKEND_DIR / "data" / "sample" / "cic_sample.csv"
 _MODEL_PATH = _BACKEND_DIR / "models" / "detector.joblib"
 
 _EVENT_BUFFER = 20
+
+# Sentinel attack_type for a stealth attack: samples real attack flows that most
+# resemble benign traffic, so the detector struggles to flag them.
+STEALTH = "stealth"
 
 
 def _now() -> str:
@@ -116,12 +120,19 @@ class Simulator:
         self.hacked_nodes: set[str] = set()
         self._announced_detections: set[str] = set()
         self._announced_reroutes: set[str] = set()
+        self._announced_isolated: set[str] = set()
 
         rows = _load_rows(csv_path or _SAMPLE_CSV)
         self.benign_rows = [r for r in rows if r["label"] == BENIGN]
         self.attack_rows: dict[str, list[dict]] = {
             atk: [r for r in rows if r["label"] == atk] for atk in ATTACK_TYPES
         }
+        # Benign baseline (mean/std per feature) — the "normal" reference used to
+        # explain WHY a link flagged: how abnormal each feature is vs benign.
+        self._benign_mean, self._benign_std = self._benign_baseline()
+        # Stealth pool: real attack rows that sit closest to benign in feature
+        # space (hardest to detect). Built from the benign-standardized distance.
+        self.stealth_pool = self._build_stealth_pool()
         self.detector, self.model_name = self._load_detector(rows)
 
         self._emit("info", f"Swarm online — {len(self.graph.nodes)} drones, "
@@ -138,9 +149,68 @@ class Simulator:
                 pass
         return FakeDetector(labeled_rows), "FakeDetector(k-NN)"
 
+    # --- benign baseline / explanations ------------------------------------
+    def _benign_baseline(self) -> tuple[dict, dict]:
+        """Per-feature mean and std over benign rows (std floored to avoid /0)."""
+        mean: dict[str, float] = {}
+        std: dict[str, float] = {}
+        n = max(len(self.benign_rows), 1)
+        for c in FEATURE_COLUMNS:
+            vals = [float(r[c]) for r in self.benign_rows] or [0.0]
+            m = sum(vals) / n
+            var = sum((v - m) ** 2 for v in vals) / n
+            mean[c] = m
+            std[c] = var ** 0.5 or 1.0
+        return mean, std
+
+    def _explain(self, features: dict) -> list[dict]:
+        """Top-3 features driving the verdict: value + abnormality vs benign.
+
+        Abnormality is a z-score against the benign baseline — a real, per-sample
+        delta-from-normal that works regardless of which detector is plugged in.
+        """
+        scored = []
+        for c in FEATURE_COLUMNS:
+            z = (features[c] - self._benign_mean[c]) / self._benign_std[c]
+            scored.append((c, features[c], self._benign_mean[c], z))
+        scored.sort(key=lambda t: abs(t[3]), reverse=True)
+        return [
+            {
+                "feature": c,
+                "value": round(val, 4),
+                "baseline": round(mean, 4),
+                "z_score": round(z, 4),
+                "direction": "high" if z >= 0 else "low",
+            }
+            for c, val, mean, z in scored[:3]
+        ]
+
+    def _build_stealth_pool(self) -> list[dict]:
+        """Attack rows nearest to the benign cluster (low-and-slow, evasive).
+
+        Distance is measured in benign-standardized feature space, so "nearest to
+        benign" is principled rather than guessed. Keeps the closest ~half of all
+        attack rows (min 3) — these are genuinely the attack flows most likely to
+        slip past the detector."""
+        scored = []
+        for atk in ATTACK_TYPES:
+            for row in self.attack_rows.get(atk, []):
+                dist2 = sum(
+                    ((float(row[c]) - self._benign_mean[c]) / self._benign_std[c]) ** 2
+                    for c in FEATURE_COLUMNS
+                )
+                scored.append((dist2, row))
+        scored.sort(key=lambda t: t[0])
+        if not scored:
+            return []
+        keep = max(3, len(scored) // 2)
+        return [row for _, row in scored[:keep]]
+
     # --- sampling ----------------------------------------------------------
     def _sample_features(self, link) -> dict:
-        if link.attack_type and self.attack_rows.get(link.attack_type):
+        if link.attack_type == STEALTH and self.stealth_pool:
+            pool = self.stealth_pool
+        elif link.attack_type and self.attack_rows.get(link.attack_type):
             pool = self.attack_rows[link.attack_type]
         else:
             pool = self.benign_rows
@@ -158,12 +228,20 @@ class Simulator:
             if link is not None:
                 link.attack_type = ACTION_TO_ATTACK["jam"]  # DoS
                 self._emit("info", f"Operator jammed link {link.id} (simulated RF)")
+        elif action == "stealth":
+            link = self.graph.link(target) if target else None
+            if link is not None:
+                link.attack_type = STEALTH  # low-and-slow, benign-like attack flow
+                self._emit("info", f"Operator launched STEALTH attack on link {link.id}")
         elif action == "hack":
             if target and target in self.graph._nodes_by_id:
                 self.hacked_nodes.add(target)
+                # Quarantine response: the drone is treated as compromised and
+                # removed from the mesh; its links are severed and traffic routes
+                # around it (handled in tick). No attack sampling on a dead node.
                 for link in self.graph.links_incident_to(target):
-                    link.attack_type = ACTION_TO_ATTACK["hack"]  # PortScan
-                self._emit("info", f"Operator hacked drone {target}")
+                    link.attack_type = None
+                self._emit("detection", f"Drone {target} COMPROMISED — quarantining")
         elif action == "reset":
             for link in self.graph.links:
                 link.attack_type = None
@@ -174,19 +252,36 @@ class Simulator:
             self.hacked_nodes.clear()
             self._announced_detections.clear()
             self._announced_reroutes.clear()
+            self._announced_isolated.clear()
             self._emit("recovery", "All systems restored — swarm healthy")
 
     # --- the tick loop -----------------------------------------------------
     def tick(self) -> dict:
         self.tick_count += 1
         jammed_count = 0
+        hacked = self.hacked_nodes
+        # Links severed by quarantine: any link touching a hacked drone is cut.
+        severed = {
+            l.id
+            for l in self.graph.links
+            if l.source in hacked or l.target in hacked
+        }
 
-        # 1. Sample + score every link; link visibility follows the prediction.
+        # 1. Sample + score live links; quarantined links are severed (down).
         for link in self.graph.links:
+            if link.id in severed:
+                link.status = "down"
+                link.active = False
+                link.prediction = {"label": BENIGN, "attack_type": None, "confidence": 0.0}
+                link.reasons = []
+                link.features = {}
+                self._announced_detections.discard(link.id)
+                continue
             feats = self._sample_features(link)
             pred = self.detector.predict(feats)
             link.prediction = pred
-            link.features = feats  # raw CIC values scored this tick (for the scope panel)
+            link.reasons = self._explain(feats)
+            link.features = feats  # raw CIC values scored this tick (scope panel)
             if pred["label"] != BENIGN:
                 link.status = "jammed"
                 link.active = False
@@ -203,17 +298,21 @@ class Simulator:
                 link.active = True
                 self._announced_detections.discard(link.id)
 
-        # 2. Self-heal: real reroute around jammed/down links.
+        # 2. Self-heal. Dead = jammed + severed links; hacked drones are removed
+        #    from routing entirely (quarantine), so traffic routes AROUND them.
         dead = {l.id for l in self.graph.links if l.status in ("jammed", "down")}
         rerouted_links: set[str] = set()
         defending_nodes: set[str] = set()
-        still_jammed: set[str] = set()
+        live_reroute_keys: set[str] = set()
 
+        # 2a. Reroute around each jammed link.
         for link in self.graph.links:
             if link.status != "jammed":
                 continue
-            still_jammed.add(link.id)
-            path = shortest_path(self.graph, link.source, link.target, avoid=dead)
+            live_reroute_keys.add(link.id)
+            path = shortest_path(
+                self.graph, link.source, link.target, avoid=dead, avoid_nodes=hacked
+            )
             if path and len(path) > 1:
                 for a, b in zip(path, path[1:]):
                     rerouted_links.add(self.graph.link_id(a, b))
@@ -221,13 +320,59 @@ class Simulator:
                 if link.id not in self._announced_reroutes:
                     self._emit("reroute", f"Rerouted around {link.id} via {'→'.join(path)}")
                     self._announced_reroutes.add(link.id)
-            else:
-                if link.id not in self._announced_reroutes:
-                    self._emit("info", f"No path around {link.id} — endpoints partitioned")
-                    self._announced_reroutes.add(link.id)
+            elif link.id not in self._announced_reroutes:
+                self._emit("info", f"No path around {link.id} — endpoints partitioned")
+                self._announced_reroutes.add(link.id)
 
-        # Forget reroute announcements for links that have recovered.
-        self._announced_reroutes &= still_jammed
+        # 2b. Quarantine healing: restore the connectivity each hacked drone used
+        #     to provide by routing its former neighbours to one another around it.
+        for h in hacked:
+            key = f"quarantine:{h}"
+            live_reroute_keys.add(key)
+            neighbours = [
+                (l.target if l.source == h else l.source)
+                for l in self.graph.links_incident_to(h)
+            ]
+            neighbours = [n for n in neighbours if n not in hacked]
+            healed = False
+            for i in range(len(neighbours)):
+                for j in range(i + 1, len(neighbours)):
+                    path = shortest_path(
+                        self.graph, neighbours[i], neighbours[j],
+                        avoid=dead, avoid_nodes=hacked,
+                    )
+                    if path and len(path) > 1:
+                        for a, b in zip(path, path[1:]):
+                            rerouted_links.add(self.graph.link_id(a, b))
+                        defending_nodes.update(path)
+                        healed = True
+            if key not in self._announced_reroutes:
+                msg = (
+                    f"Quarantined {h} — swarm rerouting around it"
+                    if healed
+                    else f"Quarantined {h} — no detour available"
+                )
+                self._emit("reroute" if healed else "info", msg)
+                self._announced_reroutes.add(key)
+
+        # Forget reroute announcements for threats that have cleared.
+        self._announced_reroutes &= live_reroute_keys
+
+        # 2c. Isolation: any non-hacked drone cut off from the main swarm.
+        comps = components(self.graph, avoid=dead, avoid_nodes=hacked)
+        main = comps[0] if comps else set()
+        isolated = {
+            n.id for n in self.graph.nodes
+            if n.id not in hacked and n.id not in main
+        }
+        for node_id in isolated:
+            if node_id not in self._announced_isolated:
+                self._emit("detection", f"Drone {node_id} ISOLATED — cut off from swarm")
+                self._announced_isolated.add(node_id)
+        for node_id in list(self._announced_isolated):
+            if node_id not in isolated:
+                self._emit("recovery", f"Drone {node_id} reconnected to swarm")
+                self._announced_isolated.discard(node_id)
 
         # Paint detour links (only healthy links carrying rerouted traffic).
         for link in self.graph.links:
@@ -235,16 +380,19 @@ class Simulator:
                 link.status = "rerouted"
                 link.active = True
 
-        # 3. Node statuses: hacked > defending > healthy.
+        # 3. Node statuses: hacked(attacked) > isolated > defending > healthy.
         for node in self.graph.nodes:
-            if node.id in self.hacked_nodes:
+            if node.id in hacked:
                 node.status = "attacked"
+            elif node.id in isolated:
+                node.status = "isolated"
             elif node.id in defending_nodes:
                 node.status = "defending"
             else:
                 node.status = "healthy"
 
-        return self._serialize(self._threat_level(jammed_count))
+        active_attacks = jammed_count + len(hacked) + len(isolated)
+        return self._serialize(self._threat_level(active_attacks))
 
     # --- helpers -----------------------------------------------------------
     @staticmethod
@@ -272,7 +420,8 @@ class Simulator:
                     "status": l.status,
                     "active": l.active,
                     "prediction": l.prediction,
-                    "features": getattr(l, "features", {}),
+                    "reasons": l.reasons,
+                    "features": l.features,
                 }
                 for l in self.graph.links
             ],

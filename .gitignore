@@ -27,6 +27,9 @@ data/raw/
 **/data/raw/
 *.csv
 !**/data/sample/*.csv
+*.crdownload
+*.zip
+backend/data/*.csv
 
 # Nested git worktrees (agents work here; never commit them into main)
 /ml/

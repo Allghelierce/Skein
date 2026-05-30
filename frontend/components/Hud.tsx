@@ -1,6 +1,5 @@
 // frontend/components/Hud.tsx
-// Reusable angular HUD frame: a straight-edged panel with neon corner brackets
-// and an optional tracked header. Keeps every panel visually consistent.
+// Clean card frame: hairline border, subtle rounding, optional header row.
 "use client";
 
 import type { ReactNode } from "react";
@@ -18,12 +17,8 @@ export function HudFrame({
 }) {
   return (
     <section className={`panel ${className}`}>
-      <span className="hud-corner tl" />
-      <span className="hud-corner tr" />
-      <span className="hud-corner bl" />
-      <span className="hud-corner br" />
       {(title || right) && (
-        <div className="flex items-center justify-between px-3.5 pt-3">
+        <div className="flex items-center justify-between border-b border-line-soft px-4 py-2.5">
           {title ? <span className="panel-title">{title}</span> : <span />}
           {right}
         </div>

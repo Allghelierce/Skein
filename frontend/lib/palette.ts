@@ -1,29 +1,41 @@
 // frontend/lib/palette.ts
-// Two-color tactical scheme: neon green = healthy / healing, neon red = hostile.
-// Shared by the map, panels, and feed so everything stays consistent.
+// Restraint: neutral by default, color only where it carries meaning.
+// green = healthy / healing, red = hostile.
 
 import type { LinkStatus, NodeStatus, ThreatLevel } from "./types";
 
 export const HEX = {
-  green: "#29ff8c",
-  red: "#ff2d46",
-  dim: "#5f7f96",
-  faint: "#34505f",
+  green: "#2ee27a",
+  red: "#ff3b5c",
+  node: "#34343c", // neutral healthy unit
+  ink: "#ededf0",
+  dim: "#8a8a93",
+  faint: "#55555e",
+  line: "#1e1e22",
 } as const;
 
+// Healthy drones stay neutral (white-ish); only state changes bring color in.
 export function nodeColor(status: NodeStatus): string {
-  return status === "attacked" ? HEX.red : HEX.green;
+  switch (status) {
+    case "attacked":
+      return HEX.red;
+    case "defending":
+      return HEX.green;
+    default:
+      return HEX.ink;
+  }
 }
 
 export function linkColor(status: LinkStatus): string {
   switch (status) {
     case "jammed":
       return HEX.red;
-    case "down":
-      return HEX.dim;
-    default:
-      // healthy + rerouted are both green (rerouted is distinguished by motion/glow)
+    case "rerouted":
       return HEX.green;
+    case "down":
+      return HEX.faint;
+    default:
+      return HEX.node; // healthy links are quiet grey
   }
 }
 

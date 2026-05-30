@@ -65,6 +65,9 @@ class Link:
     prediction: dict = field(
         default_factory=lambda: {"label": "BENIGN", "attack_type": None, "confidence": 1.0}
     )
+    # Top features that drove this tick's prediction (why-it-flagged). Each item:
+    # {"feature","value","baseline","z_score","direction"}.
+    reasons: list = field(default_factory=list)
     # Raw CIC feature values the detector scored this tick (keys = FEATURE_COLUMNS).
     features: dict = field(default_factory=dict)
 
