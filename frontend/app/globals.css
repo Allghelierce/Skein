@@ -128,6 +128,41 @@ body {
   will-change: transform;
 }
 
+/* idle hover — drones bob gently like hovering aircraft */
+@keyframes drone-hover {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.drone-hover { animation: drone-hover 4s ease-in-out infinite; will-change: transform; }
+
+/* break beat — expanding red shockwave when an attack lands */
+@keyframes shockwave {
+  0% { transform: translate(-50%, -50%) scale(0.15); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+.shockwave { animation: shockwave 0.5s ease-out forwards; }
+
+/* break beat — one-shot red snap on the jammed edge */
+@keyframes edge-snap {
+  0% { stroke-width: 6; opacity: 1; }
+  100% { stroke-width: 1.5; opacity: 0; }
+}
+.edge-snap { animation: edge-snap 0.45s ease-out forwards; }
+
+/* respect reduced-motion: kill all looping + one-shot motion */
+@media (prefers-reduced-motion: reduce) {
+  .drone-hover,
+  .terrain-scroll,
+  .edge-jammed,
+  .edge-reroute,
+  .animate-skein-ring,
+  .animate-skein-pulse,
+  .shockwave,
+  .edge-snap {
+    animation: none !important;
+  }
+}
+
 /* thin scrollbar */
 .scroll-thin::-webkit-scrollbar { width: 5px; }
 .scroll-thin::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 3px; }
