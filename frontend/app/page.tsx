@@ -32,8 +32,8 @@ export default function Page() {
       <StatusBar state={state} connected={connected} mode={mode} />
       <MissionStatus analysis={analysis} />
 
-      <main className="flex min-h-0 flex-1 gap-4 p-4">
-        <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <main className="flex min-h-0 flex-1 gap-3 p-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
           <div className="flex min-h-0 flex-1 flex-col">
             <SwarmMap
               state={state}
@@ -43,12 +43,12 @@ export default function Page() {
             />
           </div>
           <LiveStatsBar state={state} analysis={analysis} />
-          <div className="h-[200px] shrink-0">
+          <div className="h-[180px] shrink-0">
             <RawDataScope state={state} />
           </div>
         </div>
 
-        <aside className="flex w-[360px] min-w-[320px] flex-col gap-4">
+        <aside className="scroll-thin flex w-[340px] min-w-[300px] flex-col gap-3 overflow-y-auto">
           <DetectorPanel state={state} />
           <WhyFlagged state={state} />
           <EventFeed state={state} />

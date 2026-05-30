@@ -73,7 +73,7 @@ export function RawDataScope({ state }: Props) {
       title="Raw Data Scope"
       right={
         <span className="flex items-center gap-1.5 text-[0.66rem] text-ink-dim">
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.green }} />
+          <span className="h-1.5 w-1.5 rounded-full animate-skein-pulse" style={{ background: HEX.green }} />
           live feature stream
         </span>
       }
