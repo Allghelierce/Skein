@@ -9,7 +9,9 @@
 // a survivable event instead of a total blackout.
 //
 // NOTE: nodes with status "attacked"/"isolated"/"down" are treated as off-mesh.
-import type { StateMessage, SwarmNode } from "./types";
+import type { StateMessage } from "./types";
+
+export type MeshStatus = "nominal" | "secure" | "partitioned";
 
 export interface MeshAnalysis {
   hubId: string | null; // largest cluster's anchor (highest-degree survivor) — display only
@@ -18,7 +20,7 @@ export interface MeshAnalysis {
   reachable: Set<string>; // drones in that largest cluster
   isolated: string[]; // surviving drones cut off from the main cluster (collateral)
   compromised: string[];
-  status: "nominal" | "degraded" | "critical";
+  status: MeshStatus;
 }
 
 export function analyzeMesh(state: StateMessage | null): MeshAnalysis {
@@ -35,8 +37,10 @@ export function analyzeMesh(state: StateMessage | null): MeshAnalysis {
   }
 
   const nodes = state.nodes;
+  // Node statuses are healthy | attacked | defending | isolated; "attacked" is
+  // the hacked/compromised drone removed from the trusted mesh.
   const compromisedSet = new Set(
-    nodes.filter((n) => n.status === "attacked" || n.status === "down").map((n) => n.id),
+    nodes.filter((n) => n.status === "attacked").map((n) => n.id),
   );
   const alive = nodes.filter((n) => !compromisedSet.has(n.id));
 
@@ -92,11 +96,13 @@ export function analyzeMesh(state: StateMessage | null): MeshAnalysis {
   // Comms % = surviving drones still linked together, over the whole swarm.
   const commsPct = Math.round((reachable.size / nodes.length) * 100);
 
-  const status: MeshAnalysis["status"] =
-    isolated.length > 2 || commsPct < 50
-      ? "critical"
-      : isolated.length > 0 || compromisedSet.size > 0
-        ? "degraded"
+  const anyAttack =
+    compromisedSet.size > 0 || state.links.some((l) => l.status === "jammed");
+  const status: MeshStatus =
+    isolated.length > 0
+      ? "partitioned"
+      : anyAttack
+        ? "secure"
         : "nominal";
 
   return {
