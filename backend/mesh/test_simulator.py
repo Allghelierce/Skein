@@ -260,6 +260,30 @@ def test_live_attack_overlays_on_host_node_links():
     assert state["threat_level"] != "NOMINAL"
 
 
+def test_live_attack_marks_attacker_as_attacked_not_isolated():
+    # A live attack comes FROM the attacker node. It must read as the source of
+    # the attack ("attacked"), not as a friendly drone that got cut off, and a
+    # single attack must not jump straight to CRITICAL.
+    sim = Simulator()
+    sim.heartbeat("ATK")
+    sim.tick()
+    feats = {c: 1.0 for c in FEATURE_COLUMNS}
+    sim.push_live_attack(
+        feats, {"label": "PortScan", "attack_type": "PortScan", "confidence": 0.97},
+        ttl_ticks=3,
+    )
+    state = sim.tick()
+
+    atk = next(n for n in state["nodes"] if n["id"] == "ATK")
+    assert atk["status"] == "attacked"
+    assert all(n["status"] != "isolated" for n in state["nodes"])
+    # One attack -> ELEVATED, not CRITICAL (no per-link / isolation double-count).
+    assert state["threat_level"] == "ELEVATED"
+    assert not any(
+        e["kind"] == "detection" and "ISOLATED" in e["message"] for e in state["events"]
+    )
+
+
 def test_live_attack_expires_after_ttl():
     sim = Simulator()
     sim.heartbeat("ATK")

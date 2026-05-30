@@ -380,10 +380,14 @@ class Simulator:
             if live is not None and live["expires_tick"] < self.tick_count:
                 live = self._live_attack = None
         live_link_ids: set[str] = set()
+        live_hosts: set[str] = set()  # host nodes currently emitting a live attack
         if live is not None:
             for host in self.host_nodes:
-                for l in self.graph.links_incident_to(host):
-                    live_link_ids.add(l.id)
+                incident = self.graph.links_incident_to(host)
+                if incident:
+                    live_hosts.add(host)
+                    for l in incident:
+                        live_link_ids.add(l.id)
 
         hacked = self.hacked_nodes
         # Host nodes whose heartbeats lapsed (laptop killed/offline) are treated
@@ -413,7 +417,8 @@ class Simulator:
                 link.reasons = self._explain(live["features"])
                 link.status = "jammed"
                 link.active = False
-                jammed_count += 1
+                # Counted once as a single live attack below (via live_hosts),
+                # not per-link, so one real attack doesn't read as several jams.
                 if link.id not in self._announced_detections:
                     self._emit(
                         "detection",
@@ -458,7 +463,13 @@ class Simulator:
             # individually rerouted — the node is about to be quarantined and
             # healed around as a unit (phase 2). Skipping them keeps the
             # detection window showing clean ML flags, not "partitioned" noise.
-            if link.source in self.compromised or link.target in self.compromised:
+            # ...and a live-attacked host node's own links are flagged (red) but
+            # not individually rerouted — the attacker is an edge node, not a relay;
+            # rerouting "around" it would only spam "partitioned".
+            if (
+                link.source in self.compromised or link.target in self.compromised
+                or link.source in live_hosts or link.target in live_hosts
+            ):
                 continue
             live_reroute_keys.add(link.id)
             # Route AROUND every removed (hacked/dark) node and every dead link
@@ -532,7 +543,8 @@ class Simulator:
         main = comps[0] if comps else set()
         isolated = {
             n.id for n in self.graph.nodes
-            if n.id not in removed and n.id not in self.compromised and n.id not in main
+            if n.id not in removed and n.id not in self.compromised
+            and n.id not in live_hosts and n.id not in main
         }
         for node_id in isolated:
             if node_id not in self._announced_isolated:
@@ -554,7 +566,7 @@ class Simulator:
 
         # 3. Node statuses: hacked(attacked) > dark(down) > isolated > defending.
         for node in self.graph.nodes:
-            if node.id in hacked or node.id in self.compromised:
+            if node.id in hacked or node.id in self.compromised or node.id in live_hosts:
                 node.status = "attacked"
             elif node.id in down:
                 node.status = "down"
@@ -565,7 +577,7 @@ class Simulator:
             else:
                 node.status = "healthy"
 
-        active_attacks = jammed_count + len(hacked) + len(isolated)
+        active_attacks = jammed_count + len(hacked) + len(isolated) + (1 if live_hosts else 0)
         return self._serialize(self._threat_level(active_attacks))
 
     # --- helpers -----------------------------------------------------------
