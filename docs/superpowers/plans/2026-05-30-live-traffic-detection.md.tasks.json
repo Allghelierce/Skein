@@ -1,0 +1,39 @@
+{
+  "planPath": "docs/superpowers/plans/2026-05-30-live-traffic-detection.md",
+  "tasks": [
+    {
+      "id": 6,
+      "subject": "Task 0: Feature mapping module + dependency",
+      "status": "pending",
+      "description": "**Goal:** Convert a cicflowmeter flow record into a {FEATURE_COLUMNS: float} dict the Detector accepts, with bad-value guards.\n\n**Files:** Create backend/live/__init__.py, backend/live/features.py, backend/live/test_features.py; Modify backend/requirements.txt.\n\n**Acceptance Criteria:** map_flow returns exactly FEATURE_COLUMNS keys; bad/NaN/inf coerce to 0.0; missing columns raise KeyError.\n\n**Verify:** cd backend && ./.venv/bin/python -m pytest live/test_features.py -v\n\n```json:metadata\n{\"files\": [\"backend/live/features.py\", \"backend/live/test_features.py\", \"backend/requirements.txt\"], \"verifyCommand\": \"cd backend && ./.venv/bin/python -m pytest live/test_features.py -v\", \"acceptanceCriteria\": [\"map_flow returns exactly FEATURE_COLUMNS keys\", \"bad/NaN/inf values coerce to 0.0\", \"missing source columns raise KeyError\"]}\n```"
+    },
+    {
+      "id": 7,
+      "subject": "Task 1: Live capture core",
+      "status": "pending",
+      "blockedBy": [6],
+      "description": "**Goal:** LiveCapture consumes a flow iterator, keeps only attacker-IP flows, scores with Detector, calls callback on non-BENIGN.\n\n**Files:** Create backend/live/capture.py, backend/live/test_capture.py.\n\n**Acceptance Criteria:** non-attacker flows skipped; non-BENIGN triggers callback; BENIGN does not.\n\n**Verify:** cd backend && ./.venv/bin/python -m pytest live/test_capture.py -v\n\n```json:metadata\n{\"files\": [\"backend/live/capture.py\", \"backend/live/test_capture.py\"], \"verifyCommand\": \"cd backend && ./.venv/bin/python -m pytest live/test_capture.py -v\", \"acceptanceCriteria\": [\"non-attacker flows skipped\", \"non-BENIGN triggers callback\", \"BENIGN does not trigger callback\"]}\n```"
+    },
+    {
+      "id": 8,
+      "subject": "Task 2: Simulator live-overlay integration",
+      "status": "pending",
+      "description": "**Goal:** Thread-safe push_live_attack() + overlay live detection on host (ATK) node links for a few ticks, clearing after TTL.\n\n**Files:** Modify backend/mesh/simulator.py, backend/mesh/test_simulator.py.\n\n**Acceptance Criteria:** overlay sets host-node links to pushed label, threat non-NOMINAL; clears after TTL; push_live_attack lock-guarded.\n\n**Verify:** cd backend && ./.venv/bin/python -m pytest mesh/test_simulator.py -v\n\n```json:metadata\n{\"files\": [\"backend/mesh/simulator.py\", \"backend/mesh/test_simulator.py\"], \"verifyCommand\": \"cd backend && ./.venv/bin/python -m pytest mesh/test_simulator.py -v\", \"acceptanceCriteria\": [\"overlay sets host-node links to pushed label, threat non-NOMINAL\", \"overlay clears after TTL\", \"push_live_attack lock-guarded\"]}\n```"
+    },
+    {
+      "id": 9,
+      "subject": "Task 3: Production flow source + env-gated wiring",
+      "status": "pending",
+      "blockedBy": [7, 8],
+      "description": "**Goal:** Real cicflowmeter-backed flow iterator + env-gated startup launching LiveCapture only when enabled.\n\n**Files:** Create backend/live/flow_source.py, backend/live/wiring.py, backend/live/test_wiring.py; Modify backend/app.py.\n\n**Acceptance Criteria:** disabled when env unset (None); disabled when attacker ip missing (None); app imports and startup hook wired.\n\n**Verify:** cd backend && ./.venv/bin/python -m pytest live/test_wiring.py -v && ./.venv/bin/python -c 'import app'\n\n```json:metadata\n{\"files\": [\"backend/live/flow_source.py\", \"backend/live/wiring.py\", \"backend/live/test_wiring.py\", \"backend/app.py\"], \"verifyCommand\": \"cd backend && ./.venv/bin/python -m pytest live/test_wiring.py -v && ./.venv/bin/python -c 'import app'\", \"acceptanceCriteria\": [\"disabled when env unset returns None\", \"disabled when attacker ip missing returns None\", \"app imports and startup hook wired\"]}\n```"
+    },
+    {
+      "id": 10,
+      "subject": "Task 4: Two-laptop rig verification + runbook",
+      "status": "pending",
+      "blockedBy": [9],
+      "description": "**Goal:** Prove the full path on the two-laptop rig (real nmap/hping3 → ATK node lights up with right class) and document launch steps.\n\n**USER-ORDERED GATE — NON-SKIPPABLE.** Requested by the user. Close only after every acceptanceCriteria item is re-validated independently with output captured.\n\n**Files:** Modify docs/DEMO_SCRIPT.md.\n\n**Acceptance Criteria:** cicflowmeter columns reconciled with FLOW_FEATURE_MAP; backend starts with live-capture env vars; nmap -sS shows PortScan within ~2s; hping3 flood shows DoS and clears after stop; runbook added to DEMO_SCRIPT.md.\n\n**Verify:** Manual on the rig — observe dashboard ATK links + event feed during nmap/hping3 from laptop 2.\n\n```json:metadata\n{\"files\": [\"docs/DEMO_SCRIPT.md\", \"backend/live/features.py\"], \"verifyCommand\": \"manual: observe dashboard ATK links + event feed during nmap/hping3 from laptop 2\", \"acceptanceCriteria\": [\"cicflowmeter column names reconciled with FLOW_FEATURE_MAP\", \"backend starts with live-capture env vars\", \"nmap -sS shows PortScan within ~2s\", \"hping3 flood shows DoS and clears after stop\", \"runbook added to DEMO_SCRIPT.md\"], \"userGate\": true, \"tags\": [\"user-gate\"], \"gateScope\": \"all\"}\n```"
+    }
+  ],
+  "lastUpdated": "2026-05-30"
+}
