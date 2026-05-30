@@ -1,18 +1,25 @@
 // frontend/components/BootScreen.tsx
-// Brief militaristic bring-up: big SKEIN wordmark, a fast terminal boot log,
-// then it fades out. ~2.5s total. Pure presentation — no data, no blocking.
+// Brief militaristic bring-up: big SKEIN wordmark, a fast init log, then it fades.
+// The log is NOT theater — each line states a real fact about the system (the
+// trained model's own metrics from the held-out evaluation, the dataset, the
+// classes, the mesh), so the bring-up reads as a genuine systems check.
 "use client";
 
 import { useEffect, useState } from "react";
 import { HEX } from "@/lib/palette";
+import { MODEL_REPORT as R } from "@/lib/modelReport";
 
-const LINES = [
-  "mesh defense kernel ............ online",
-  "classic-ml detector (RandomForest) ... loaded",
-  "CIC-IDS2017 feature pipeline ...... ready",
-  "mesh topology ............ established",
-  "threat thresholds ............ calibrated",
-  "swarm ............ armed",
+// key / value init lines — values are real (from backend/ml/report.py), not props.
+const LINES: { k: string; v: string }[] = [
+  {
+    k: "detector",
+    v: `${R.best_model} · ${(R.accuracy * 100).toFixed(1)}% acc · ${R.macro_f1.toFixed(2)} macro-F1`,
+  },
+  { k: "dataset", v: `CIC-IDS-2017 · ${R.n_test.toLocaleString("en-US")} held-out flows` },
+  { k: "classes", v: R.labels.join(" · ") },
+  { k: "bake-off", v: `${R.comparison.length} classifiers benchmarked · ${R.best_model} won` },
+  { k: "mesh", v: "13 drones · 28 links · dense k-NN topology" },
+  { k: "transport", v: "websocket · live swarm state @ 1 Hz" },
 ];
 
 const LINE_MS = 185;
@@ -66,17 +73,18 @@ export function BootScreen() {
           />
         </div>
 
-        {/* boot log */}
+        {/* init log — real system facts, key/value */}
         <div className="mono mt-5 space-y-1.5 text-[0.74rem]">
           {LINES.slice(0, shown).map((line, i) => (
-            <div key={i} className="boot-line flex items-center gap-2">
-              <span style={{ color: HEX.green }}>[ ok ]</span>
-              <span className="text-ink-dim">{line}</span>
+            <div key={i} className="boot-line flex items-baseline gap-2">
+              <span style={{ color: HEX.green }}>›</span>
+              <span className="w-[5.5rem] shrink-0 text-ink-faint">{line.k}</span>
+              <span className="text-ink-dim">{line.v}</span>
             </div>
           ))}
           {shown < LINES.length && (
             <div className="flex items-center gap-2">
-              <span className="text-ink-faint">[ &middot;&middot; ]</span>
+              <span style={{ color: HEX.green }}>›</span>
               <span
                 className="inline-block h-3.5 w-2 animate-skein-pulse"
                 style={{ background: HEX.green }}
