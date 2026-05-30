@@ -105,7 +105,8 @@ function computeHopDelays(links: SwarmLink[]): Map<string, number> {
     }
   }
   const delay = new Map<string, number>();
-  for (const [id, h] of hop) delay.set(id, h * 0.14);
+  // tighter hop stagger so the multi-hop "search wave" reads fast & snappy
+  for (const [id, h] of hop) delay.set(id, h * 0.1);
   return delay;
 }
 
@@ -295,7 +296,7 @@ interface DataEdgeData extends Record<string, unknown> {
   dead: boolean;
   combat: boolean;
   seq: number; // bumps each time this link (re)enters jammed/rerouted
-  hopDelay: number; // stagger for the heal comet (seconds)
+  hopDelay: number; // stagger for the search→commit heal sweep (seconds)
   reducedMotion: boolean;
 }
 type DataEdge = Edge<DataEdgeData, "data">;
@@ -414,26 +415,94 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
         </circle>
       )}
 
-      {/* heal sweep: bright comet runs the new route once, staggered by hop */}
+      {/* self-heal — search & commit (one-shot, staggered hop-by-hop from the break).
+          HONEST: this animates the REAL chosen detour (the backend's networkx
+          shortest_path) being discovered then locked in — not invented candidates.
+            phase 1  SEARCH  a neutral probe races the route while it's evaluated
+            phase 2  COMMIT  the line snaps green (width surge) + a heal comet runs
+          After it freezes out, the steady green marching-dash BaseEdge remains. */}
       {rerouted && !reduced && (
-        <circle
-          key={`heal-${id}-${seq}`}
-          r={3}
-          fill={HEX.green}
-          opacity={0}
-          style={{ filter: `drop-shadow(0 0 4px ${HEX.green})` }}
-        >
-          <animateMotion dur="0.55s" begin={`${hopDelay}s`} repeatCount="1" path={path} fill="freeze" />
-          <animate
-            attributeName="opacity"
-            values="1;1;0"
-            keyTimes="0;0.75;1"
-            dur="0.55s"
-            begin={`${hopDelay}s`}
-            repeatCount="1"
-            fill="freeze"
-          />
-        </circle>
+        <>
+          {/* COMMIT overlay: paints the route neutral→green over the base line */}
+          <path
+            key={`commit-${id}-${seq}`}
+            d={path}
+            fill="none"
+            stroke="#aeb4bf"
+            strokeWidth={2.4}
+            strokeLinecap="round"
+            opacity={0}
+            style={{ filter: `drop-shadow(0 0 3px ${HEX.green})` }}
+          >
+            <animate
+              attributeName="stroke"
+              dur="0.66s"
+              begin={`${hopDelay}s`}
+              values="#aeb4bf;#aeb4bf;#2ee27a;#2ee27a"
+              keyTimes="0;0.36;0.46;1"
+              repeatCount="1"
+              fill="freeze"
+            />
+            <animate
+              attributeName="stroke-width"
+              dur="0.66s"
+              begin={`${hopDelay}s`}
+              values="2.2;2.2;3.6;1.2"
+              keyTimes="0;0.36;0.5;1"
+              repeatCount="1"
+              fill="freeze"
+            />
+            <animate
+              attributeName="opacity"
+              dur="0.66s"
+              begin={`${hopDelay}s`}
+              values="0;0.85;1;0"
+              keyTimes="0;0.12;0.5;1"
+              repeatCount="1"
+              fill="freeze"
+            />
+          </path>
+
+          {/* SEARCH probe: a quick neutral scan races the route being evaluated */}
+          <circle
+            key={`probe-${id}-${seq}`}
+            r={2.6}
+            fill="#cfd3da"
+            opacity={0}
+            style={{ filter: "drop-shadow(0 0 3px #cfd3da)" }}
+          >
+            <animateMotion dur="0.3s" begin={`${hopDelay}s`} repeatCount="1" path={path} fill="freeze" />
+            <animate
+              attributeName="opacity"
+              values="0.95;0.95;0"
+              keyTimes="0;0.7;1"
+              dur="0.3s"
+              begin={`${hopDelay}s`}
+              repeatCount="1"
+              fill="freeze"
+            />
+          </circle>
+
+          {/* COMMIT comet: bright green dot locks the new route after the probe */}
+          <circle
+            key={`heal-${id}-${seq}`}
+            r={3}
+            fill={HEX.green}
+            opacity={0}
+            style={{ filter: `drop-shadow(0 0 4px ${HEX.green})` }}
+          >
+            <animateMotion dur="0.46s" begin={`${hopDelay + 0.26}s`} repeatCount="1" path={path} fill="freeze" />
+            <animate
+              attributeName="opacity"
+              values="1;1;0"
+              keyTimes="0;0.75;1"
+              dur="0.46s"
+              begin={`${hopDelay + 0.26}s`}
+              repeatCount="1"
+              fill="freeze"
+            />
+          </circle>
+        </>
       )}
 
       <EdgeLabelRenderer>
