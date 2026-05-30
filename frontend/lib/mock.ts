@@ -35,9 +35,10 @@ function between(lo: number, hi: number): number {
 //    links give a dense, symmetric, redundant mesh so a reroute always exists. ──
 const RINGS: { count: number; r: number; offsetDeg: number }[] = [
   { count: 1, r: 0, offsetDeg: 0 }, // hub
-  { count: 6, r: 0.22, offsetDeg: -90 }, // inner ring
-  { count: 12, r: 0.43, offsetDeg: -90 }, // outer ring
-];
+  { count: 6, r: 0.15, offsetDeg: -90 }, // inner ring
+  { count: 12, r: 0.29, offsetDeg: -90 }, // middle ring
+  { count: 18, r: 0.44, offsetDeg: -90 }, // outer ring
+]; // 37 drones total
 
 function buildTopology() {
   const layout: { id: string; x: number; y: number }[] = [];
@@ -59,16 +60,22 @@ function buildTopology() {
   }
 
   const edges: [string, string][] = [];
-  const [hub, inner, outer] = ringIds;
-  // hub → inner spokes
-  for (const id of inner) edges.push([hub[0], id]);
-  // ring adjacency (inner + outer)
-  for (const ring of [inner, outer]) {
+  const hub = ringIds[0];
+  // hub → first-ring spokes
+  if (ringIds[1]) for (const id of ringIds[1]) edges.push([hub[0], id]);
+  // ring adjacency around every non-hub ring
+  for (let r = 1; r < ringIds.length; r++) {
+    const ring = ringIds[r];
     for (let i = 0; i < ring.length; i++) edges.push([ring[i], ring[(i + 1) % ring.length]]);
   }
-  // radial: each outer node links to its nearest inner node
-  const ratio = outer.length / inner.length;
-  for (let i = 0; i < outer.length; i++) edges.push([outer[i], inner[Math.floor(i / ratio)]]);
+  // radial: each node links inward to its nearest node on the previous ring,
+  // so the mesh stays dense and redundant (a reroute always exists)
+  for (let r = 2; r < ringIds.length; r++) {
+    const ring = ringIds[r];
+    const prev = ringIds[r - 1];
+    const ratio = ring.length / prev.length;
+    for (let i = 0; i < ring.length; i++) edges.push([ring[i], prev[Math.floor(i / ratio)]]);
+  }
   return { layout, edges };
 }
 
