@@ -1,0 +1,52 @@
+"""Live capture: flow iterator -> filter -> Detector -> callback.
+
+The brittle third-party piece (cicflowmeter) is isolated in flow_source.py and
+injected here as `flow_source`, an iterator of flow dicts. That keeps this core
+unit-testable with a plain list and no real packets.
+"""
+from __future__ import annotations
+
+import threading
+from typing import Callable, Dict, Iterable, Optional
+
+from live.features import map_flow
+from ml.schema import BENIGN
+
+
+class LiveCapture:
+    def __init__(
+        self,
+        flow_source: Iterable[Dict],
+        detector,
+        attacker_ip: str,
+        on_detection: Callable[[Dict[str, float], Dict[str, object]], None],
+    ) -> None:
+        self._flow_source = flow_source
+        self._detector = detector
+        self._attacker_ip = attacker_ip
+        self._on_detection = on_detection
+        self._stop = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    def _involves_attacker(self, flow: Dict) -> bool:
+        return self._attacker_ip in (flow.get("src_ip"), flow.get("dst_ip"))
+
+    def _run(self) -> None:
+        for flow in self._flow_source:
+            if self._stop.is_set():
+                break
+            if not self._involves_attacker(flow):
+                continue
+            feats = map_flow(flow)
+            pred = self._detector.predict(feats)
+            if pred["label"] != BENIGN:
+                self._on_detection(feats, pred)
+
+    def start(self) -> None:
+        self._thread = threading.Thread(
+            target=self._run, name="skein-live-capture", daemon=True
+        )
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
