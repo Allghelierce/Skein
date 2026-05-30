@@ -130,7 +130,7 @@ body {
   to { transform: translate3d(0, 0, 0); }
 }
 .terrain-scroll {
-  animation: terrain-scroll 20s linear infinite;
+  animation: terrain-scroll 13s linear infinite;
   will-change: transform;
 }
 
@@ -239,7 +239,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
+  background: radial-gradient(120% 90% at 50% 45%, transparent 60%, rgba(0, 0, 0, 0.32) 100%);
   z-index: 1;
 }
 

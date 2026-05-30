@@ -188,8 +188,8 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
             <span
               className="pointer-events-none absolute rounded-full"
               style={{
-                width: 34 + risk * 30,
-                height: 34 + risk * 30,
+                width: 26 + risk * 24,
+                height: 26 + risk * 24,
                 background: `radial-gradient(circle, ${HEX.amber}40 0%, transparent 70%)`,
                 opacity: 0.35 + risk * 0.5,
               }}
@@ -197,17 +197,17 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
             {risk >= 0.4 && (
               <span
                 className="risk-pulse pointer-events-none absolute rounded-full"
-                style={{ width: 44, height: 44, border: `1px solid ${HEX.amber}`, opacity: risk * 0.7 }}
+                style={{ width: 34, height: 34, border: `1px solid ${HEX.amber}`, opacity: risk * 0.7 }}
               />
             )}
           </>
         )}
         {threat && (
-          <span className="absolute h-11 w-11 rounded-full animate-skein-ring" style={{ border: `1px solid ${color}` }} />
+          <span className="absolute h-8 w-8 rounded-full animate-skein-ring" style={{ border: `1px solid ${color}` }} />
         )}
         {data.selected && (
           <span
-            className="pointer-events-none absolute h-[46px] w-[46px] rounded-full"
+            className="pointer-events-none absolute h-[34px] w-[34px] rounded-full"
             style={{ border: `1px solid ${colored ? color : HEX.ink}`, opacity: 0.55 }}
           />
         )}
@@ -215,18 +215,18 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
         <motion.div
           animate={{ scale: data.selected ? 1.15 : 1 }}
           transition={{ duration: 0.35 }}
-          className="grid h-[34px] w-[34px] place-items-center"
+          className="grid h-[26px] w-[26px] place-items-center"
           style={{
             filter: colored
-              ? `drop-shadow(0 0 7px ${color})`
+              ? `drop-shadow(0 0 6px ${color})`
               : "drop-shadow(0 0 3px rgba(0,0,0,0.8))",
           }}
         >
-          <DroneGlyph color={glyphColor} size={24} />
+          <DroneGlyph color={glyphColor} size={18} />
         </motion.div>
 
         <span
-          className="absolute -bottom-[19px] whitespace-nowrap text-[0.62rem] font-medium tracking-tight"
+          className="absolute -bottom-[15px] whitespace-nowrap text-[0.6rem] font-medium tracking-tight"
           style={{ color: offline ? HEX.faint : colored ? color : HEX.dim }}
         >
           {offline ? `${data.label} · OFFLINE` : data.label}
@@ -279,7 +279,7 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
     );
   }
 
-  const width = (jammed ? 1.8 : rerouted ? 2.8 : 1.1) + (selected ? 1 : 0);
+  const width = (jammed ? 1.2 : rerouted ? 1.8 : 0.75) + (selected ? 0.8 : 0);
   // spotlight: quiet links recede during combat
   let opacity = jammed || rerouted ? 1 : active ? 0.6 : 0.42;
   if (combat && !jammed && !rerouted) opacity = active ? 0.26 : 0.16;
@@ -309,9 +309,9 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
           opacity,
           transition: "opacity 0.4s ease",
           filter: jammed
-            ? "drop-shadow(0 0 4px #ff3b5c)"
+            ? "drop-shadow(0 0 3px #ff3b5c)"
             : rerouted
-              ? "drop-shadow(0 0 8px #2ee27a)"
+              ? "drop-shadow(0 0 5px #2ee27a)"
               : undefined,
         }}
       />
@@ -501,7 +501,7 @@ function MapField() {
             <feFlood floodColor="#4d7da3" result="line" />
             <feComposite in="line" in2="lineAlpha" operator="in" result="lines" />
             <feComponentTransfer in="relief" result="reliefDim">
-              <feFuncA type="linear" slope="0.55" />
+              <feFuncA type="linear" slope="0.85" />
             </feComponentTransfer>
             <feMerge>
               <feMergeNode in="reliefDim" />
@@ -511,7 +511,7 @@ function MapField() {
         </defs>
       </svg>
 
-      <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.5 }}>
+      <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.85 }}>
         <TerrainTile />
         <TerrainTile />
       </div>
@@ -520,7 +520,7 @@ function MapField() {
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(125% 125% at 50% 47%, transparent 34%, rgba(3,7,11,0.93) 100%)",
+            "radial-gradient(125% 125% at 50% 47%, transparent 46%, rgba(3,7,11,0.82) 100%)",
         }}
       />
     </div>
