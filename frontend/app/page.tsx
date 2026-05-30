@@ -56,21 +56,21 @@ export default function Page() {
           />
         </div>
 
-        {/* brand — centered, tray-less, floating over the top of the map */}
-        <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center">
+        {/* brand — tray-less, pinned to the top-left over the map */}
+        <div className="pointer-events-none absolute left-4 top-3 z-20">
           <BrandBar />
         </div>
 
         {/* left rail — detection + reasoning. The ML Detector carries the Model
             Report launcher (⤢), which opens the full report popout. */}
-        <aside className="gotham-rail scroll-thin absolute bottom-3 left-3 top-14 z-10 flex w-[280px] flex-col gap-3 overflow-y-auto">
+        <aside className="gotham-rail scroll-thin absolute bottom-3 left-3 top-[72px] z-10 flex w-[280px] flex-col gap-3 overflow-y-auto">
           <DetectorPanel state={state} onOpenReport={() => setReportOpen(true)} />
           <WhyFlagged state={state} />
         </aside>
 
         {/* right rail — raw data scope + Lila (AI co-pilot). Capped well above the
             bottom-right so Lila's feed never overlaps the comms-to-base overlay. */}
-        <aside className="gotham-rail absolute bottom-[168px] right-3 top-14 z-10 flex w-[280px] flex-col gap-3">
+        <aside className="gotham-rail absolute bottom-[168px] right-3 top-[72px] z-10 flex w-[280px] flex-col gap-3">
           <div className="h-[230px] shrink-0">
             <RawDataScope state={state} />
           </div>

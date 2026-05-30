@@ -479,7 +479,7 @@ const edgeTypes = { data: DataEdge };
 
 // Keep the swarm in the clear band between the floating glass rails (~300px each
 // side) and above the bottom telemetry dock, so drones are never hidden behind UI.
-const FIT_PADDING = { top: "56px", right: "300px", bottom: "120px", left: "300px" } as const;
+const FIT_PADDING = { top: "84px", right: "320px", bottom: "136px", left: "320px" } as const;
 
 /* Topographic terrain: hillshaded relief (diffuse lighting on a procedural
    height field) for real depth, plus thin iso-contour lines on top. Two stacked,
@@ -937,8 +937,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
 
   return (
     <HudFrame className="relative min-h-0 flex-1 overflow-hidden">
-      <div className="pointer-events-none absolute left-4 top-3 z-20 panel-title">Swarm Map</div>
-      <div className="pointer-events-none absolute right-4 top-3 z-20 flex items-center gap-3 text-[0.68rem]">
+      <div className="pointer-events-none absolute right-4 top-3 z-20 flex items-center gap-3">
         <button
           type="button"
           onClick={() => setAudioOn((v) => !v)}
@@ -949,12 +948,14 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
         >
           <SpeakerIcon on={audioOn} />
         </button>
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: hostiles ? HEX.red : HEX.ink }} />
-          <span style={{ color: hostiles ? HEX.red : HEX.dim }}>
-            {hostiles ? `${hostiles} contact${hostiles > 1 ? "s" : ""}` : "All nominal"}
-          </span>
-        </div>
+        {/* live heartbeat — flashes red once per state tick (data is streaming) */}
+        <span
+          key={state?.tick ?? 0}
+          className="tick-flash h-2 w-2 shrink-0 rounded-full"
+          style={{ background: HEX.red }}
+          aria-label="live data feed"
+          title="live"
+        />
       </div>
 
       <MapField />

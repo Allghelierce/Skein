@@ -45,6 +45,7 @@ function maskSlots(text: string): Slot[] {
 
 function DecodeText({ text, durationMs = 450 }: { text: string; durationMs?: number }) {
   const [slots, setSlots] = useState<Slot[]>(() => maskSlots(text));
+  const [done, setDone] = useState(false);
   const len = text.length;
 
   useEffect(() => {
@@ -65,11 +66,19 @@ function DecodeText({ text, durationMs = 450 }: { text: string; durationMs?: num
         }),
       );
       if (t < 1) raf = requestAnimationFrame(step);
-      else setSlots(solved());
+      else {
+        setSlots(solved());
+        setDone(true);
+      }
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [text, durationMs, len]);
+
+  // once settled, render the wordmark as plain text so it gets natural kerning —
+  // the fixed-width cells (needed to stop jitter during the churn) otherwise leave
+  // narrow letters like "I" with oversized gaps to their neighbours.
+  if (done) return <>{text}</>;
 
   return (
     <>
