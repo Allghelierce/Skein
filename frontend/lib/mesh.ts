@@ -1,94 +1,111 @@
 // frontend/lib/mesh.ts
-// Mission-status analysis computed purely from the swarm state the backend (or
-// mock) already sends — so there's NO contract change and it works the same in
-// live mode. Answers the stakes questions: can the swarm still reach base, who
-// got cut off, did it survive?
+// Live mesh connectivity analysis for the dashboard's "comms" gauge + isolation.
 //
-// Model: the highest-degree drone is the relay "base". A drone has comms if a
-// path of intact (non-jammed) links reaches base WITHOUT routing through a
-// compromised (hacked) node — a hacked relay can't be trusted. Jamming one link
-// usually reroutes (comms hold); hacking the relay partitions the swarm. The
-// magnitude falls out of the graph, so hack is automatically worse than jam.
-
-import type { StateMessage } from "./types";
-
-export type MeshStatus = "nominal" | "secure" | "partitioned";
+// Model: a resilient mesh has NO single base. Comms strength = the share of
+// surviving drones that are still connected to one another in the largest intact
+// cluster. Jamming a link reroutes (comms hold); quarantining a drone removes it
+// but the rest stay linked; only when a drone's whole neighbourhood is gone does
+// it fall out of the cluster (isolated). This is what makes losing the core drone
+// a survivable event instead of a total blackout.
+//
+// NOTE: nodes with status "attacked"/"isolated"/"down" are treated as off-mesh.
+import type { StateMessage, SwarmNode } from "./types";
 
 export interface MeshAnalysis {
-  hubId: string | null;
+  hubId: string | null; // largest cluster's anchor (highest-degree survivor) — display only
   total: number;
-  commsPct: number; // 0..100, share of drones still reaching base
-  reachable: Set<string>;
-  isolated: string[]; // healthy drones cut off from base (collateral)
-  compromised: string[]; // hacked drones
-  status: MeshStatus;
+  commsPct: number; // 0..100, share of drones in the largest connected cluster
+  reachable: Set<string>; // drones in that largest cluster
+  isolated: string[]; // surviving drones cut off from the main cluster (collateral)
+  compromised: string[];
+  status: "nominal" | "degraded" | "critical";
 }
 
 export function analyzeMesh(state: StateMessage | null): MeshAnalysis {
-  const empty: MeshAnalysis = {
-    hubId: null,
-    total: 0,
-    commsPct: 100,
-    reachable: new Set(),
-    isolated: [],
-    compromised: [],
-    status: "nominal",
-  };
-  if (!state || state.nodes.length === 0) return empty;
+  if (!state || state.nodes.length === 0) {
+    return {
+      hubId: null,
+      total: 0,
+      commsPct: 100,
+      reachable: new Set(),
+      isolated: [],
+      compromised: [],
+      status: "nominal",
+    };
+  }
 
-  const { nodes, links } = state;
+  const nodes = state.nodes;
+  const compromisedSet = new Set(
+    nodes.filter((n) => n.status === "attacked" || n.status === "down").map((n) => n.id),
+  );
+  const alive = nodes.filter((n) => !compromisedSet.has(n.id));
 
-  // degree over the full topology (stable) + adjacency over passable links only
-  const degree = new Map<string, number>();
+  // Adjacency from links that can still carry traffic (healthy/rerouted),
+  // restricted to surviving drones.
   const adj = new Map<string, string[]>();
-  for (const n of nodes) {
-    degree.set(n.id, 0);
-    adj.set(n.id, []);
-  }
-  for (const l of links) {
-    degree.set(l.source, (degree.get(l.source) ?? 0) + 1);
-    degree.set(l.target, (degree.get(l.target) ?? 0) + 1);
-    if (l.status === "jammed" || l.status === "down") continue; // damaged: impassable
-    adj.get(l.source)?.push(l.target);
-    adj.get(l.target)?.push(l.source);
+  for (const n of alive) adj.set(n.id, []);
+  for (const l of state.links) {
+    if (l.status === "down" || l.status === "jammed") continue;
+    const a = adj.get(l.source);
+    const b = adj.get(l.target);
+    if (a && adj.has(l.target)) a.push(l.target);
+    if (b && adj.has(l.source)) b.push(l.source);
   }
 
-  // base = highest-degree drone (the relay hub)
-  let hubId = nodes[0].id;
-  for (const n of nodes) {
-    if ((degree.get(n.id) ?? 0) > (degree.get(hubId) ?? 0)) hubId = n.id;
-  }
-
-  const compromisedSet = new Set(nodes.filter((n) => n.status === "attacked").map((n) => n.id));
-
-  // BFS from base, never entering a compromised node
-  const reachable = new Set<string>();
-  if (!compromisedSet.has(hubId)) {
-    const queue = [hubId];
-    reachable.add(hubId);
+  // Find every connected component among surviving drones; the swarm's comms are
+  // carried by the LARGEST one. No single node's loss can zero this out.
+  const seen = new Set<string>();
+  let largest = new Set<string>();
+  for (const n of alive) {
+    if (seen.has(n.id)) continue;
+    const comp = new Set<string>();
+    const queue = [n.id];
+    seen.add(n.id);
+    comp.add(n.id);
     while (queue.length) {
-      const cur = queue.shift() as string;
-      for (const nb of adj.get(cur) ?? []) {
-        if (reachable.has(nb) || compromisedSet.has(nb)) continue;
-        reachable.add(nb);
+      const cur = queue.shift()!;
+      for (const nb of adj.get(cur) || []) {
+        if (seen.has(nb)) continue;
+        seen.add(nb);
+        comp.add(nb);
         queue.push(nb);
       }
     }
+    if (comp.size > largest.size) largest = comp;
   }
 
-  const isolated = nodes
-    .filter((n) => !reachable.has(n.id) && !compromisedSet.has(n.id))
-    .map((n) => n.id);
-  const compromised = nodes.filter((n) => compromisedSet.has(n.id)).map((n) => n.id);
+  const reachable = largest;
+  // Anchor = highest-degree drone inside the main cluster (display label only).
+  let hubId: string | null = null;
+  let bestDeg = -1;
+  for (const id of reachable) {
+    const deg = (adj.get(id) || []).length;
+    if (deg > bestDeg) {
+      bestDeg = deg;
+      hubId = id;
+    }
+  }
+
+  // Surviving drones that aren't in the main cluster are isolated collateral.
+  const isolated = alive.filter((n) => !reachable.has(n.id)).map((n) => n.id);
+
+  // Comms % = surviving drones still linked together, over the whole swarm.
   const commsPct = Math.round((reachable.size / nodes.length) * 100);
 
-  const anyAttack = compromised.length > 0 || links.some((l) => l.status === "jammed");
-  const status: MeshStatus =
-    isolated.length > 0 || compromisedSet.has(hubId)
-      ? "partitioned"
-      : anyAttack
-        ? "secure"
+  const status: MeshAnalysis["status"] =
+    isolated.length > 2 || commsPct < 50
+      ? "critical"
+      : isolated.length > 0 || compromisedSet.size > 0
+        ? "degraded"
         : "nominal";
 
-  return { hubId, total: nodes.length, commsPct, reachable, isolated, compromised, status };
+  return {
+    hubId,
+    total: nodes.length,
+    commsPct,
+    reachable,
+    isolated,
+    compromised: [...compromisedSet],
+    status,
+  };
 }
