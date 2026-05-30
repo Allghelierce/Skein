@@ -35,6 +35,23 @@ Attack happens  →  ML model detects it  →  swarm reroutes  →  network surv
 - **RF jamming is simulated** as controllable link degradation — real RF jamming is illegal (FCC). The mesh routing and self-healing are real code.
 - The ML model is the core, not decoration: real data, real feature engineering, real evaluation.
 
+## Running over LAN (two machines)
+
+The backend binds `0.0.0.0` so a second machine on the same network (e.g. a phone
+hotspot) can reach it — needed for the attacker-laptop demo:
+
+```bash
+cd backend
+python app.py            # binds 0.0.0.0:8000 by default
+# or: uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+Override host/port without editing code via `SKEIN_HOST` / `SKEIN_PORT` — nothing is
+hardcoded to localhost. A second client can claim a node by sending periodic
+`heartbeat` commands over the WebSocket; if its heartbeats lapse past the timeout the
+backend marks that node down and the swarm reroutes around it — the same self-heal
+path used for quarantine. Kill the client (close lid / pull wifi) and its node drops.
+
 ## Status
 
 🚧 In active development for the hackathon. See `badIDEA.txt` (full outline), `potential.txt` (roadmap), and `CLAUDE.md` (project guardrails).
