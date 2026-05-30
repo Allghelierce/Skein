@@ -17,8 +17,13 @@ def test_tick_returns_state_message_shape():
     _state_keys_ok(state)
     # nodes
     for n in state["nodes"]:
-        assert set(n) == {"id", "x", "y", "status"}
+        assert set(n) == {"id", "x", "y", "status", "host", "beat_age"}
         assert n["status"] in ("healthy", "attacked", "defending", "isolated", "down")
+        assert isinstance(n["host"], bool)
+        assert n["beat_age"] is None or isinstance(n["beat_age"], (int, float))
+        # simulated drones are never hosts and have no heartbeat
+        if not n["host"]:
+            assert n["beat_age"] is None
     # links
     for l in state["links"]:
         assert set(l) == {
