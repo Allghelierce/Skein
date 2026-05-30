@@ -13,6 +13,7 @@ const MODEL_ACC = MODEL_REPORT.accuracy;
 
 interface Props {
   state: StateMessage | null;
+  onOpenReport?: () => void;
 }
 
 function focusLink(links: SwarmLink[]): SwarmLink | null {
@@ -24,7 +25,7 @@ function focusLink(links: SwarmLink[]): SwarmLink | null {
   );
 }
 
-export function DetectorPanel({ state }: Props) {
+export function DetectorPanel({ state, onOpenReport }: Props) {
   const links = state?.links ?? [];
   const focus = focusLink(links);
   const pred = focus?.prediction;
@@ -107,8 +108,35 @@ export function DetectorPanel({ state }: Props) {
           Classic ML scores every link each tick from real CIC flow features.
           Jamming is simulated link degradation — the detection is genuine.
         </p>
+
+        {/* full model report lives in a popout — this is just its launcher */}
+        {onOpenReport && (
+          <button
+            type="button"
+            onClick={onOpenReport}
+            aria-label="Open model report"
+            className="mt-4 flex w-full items-center justify-between border-t border-line-soft pt-3 text-left transition-colors hover:text-ink"
+          >
+            <span className="panel-title">Model Report</span>
+            <span className="flex items-center gap-2 text-[0.66rem] text-ink-dim">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.green }} />
+              {MODEL_NAME}
+              <ExpandIcon />
+            </span>
+          </button>
+        )}
       </div>
     </HudFrame>
+  );
+}
+
+function ExpandIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+      <path d="M21 14v7H3V3h7" />
+    </svg>
   );
 }
 

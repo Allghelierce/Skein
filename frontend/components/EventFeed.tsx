@@ -1,5 +1,5 @@
 // frontend/components/EventFeed.tsx
-// The AI defense co-pilot's voice. Instead of a terse machine log, it narrates
+// Lila — the AI defense co-pilot's voice. Instead of a terse machine log, she narrates
 // the battle in analyst-grade English: a prominent "current situation" headline
 // plus an enriched, contextual feed. All rule-based from the live swarm state
 // (see lib/narrate.ts) — deterministic, instant, no LLM, can't fail on stage.
@@ -31,7 +31,7 @@ export function EventFeed({ state }: Props) {
 
   return (
     <HudFrame
-      title="AI Co-pilot"
+      title="Lila · AI co-pilot"
       className="flex min-h-0 flex-1 flex-col"
       right={<span className="text-[0.68rem] text-ink-faint tabular-nums">{log.length}</span>}
     >
