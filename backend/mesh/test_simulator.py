@@ -73,32 +73,63 @@ def test_reset_restores_health_and_emits_recovery():
 
 def test_hack_quarantines_node_and_reroutes_around_it():
     sim = Simulator()
-    node_id = "D2"  # degree-3 drone; removing it leaves the swarm connected
+    # Dense 13-node mesh: hacking one node severs all of ITS incident links
+    # (status "down") and reroutes traffic elsewhere; nobody gets isolated.
+    node_id = "D2"  # high-degree inner node; the swarm easily survives its loss
     sim.command("hack", node_id)
     state = sim.tick()
 
     node = next(n for n in state["nodes"] if n["id"] == node_id)
     assert node["status"] == "attacked"
-    # Incident links are severed (quarantine), not flagged as jammed.
+
+    # (a) Every link incident to the hacked node is severed (down) — and a
+    #     severed link must NEVER be repainted as rerouted.
     incident = [l for l in state["links"] if node_id in (l["source"], l["target"])]
-    assert incident and all(l["status"] == "down" for l in incident)
-    # The swarm heals AROUND the node: real rerouted (blue) links appear.
-    assert any(l["status"] == "rerouted" for l in state["links"])
+    assert len(incident) >= 4  # dense node: >= 4 neighbours
+    assert all(l["status"] == "down" for l in incident)
+    assert not any(l["status"] == "rerouted" for l in incident)
+
+    # (b) Some OTHER link in the swarm is rerouted (real detour around the loss).
+    rerouted = [l for l in state["links"] if l["status"] == "rerouted"]
+    assert rerouted, "expected reroutes elsewhere in the swarm"
+    assert all(node_id not in (l["source"], l["target"]) for l in rerouted)
     assert any(e["kind"] == "reroute" for e in state["events"])
-    # Removing one degree-3 node does not isolate anyone here.
+
+    # (c) No node is isolated — the dense mesh survives losing one drone.
     assert all(n["status"] != "isolated" for n in state["nodes"])
+
+
+def _neighbours_of(sim, node_id):
+    """Full neighbour set of a node, read straight from the live graph."""
+    nbrs = set()
+    for l in sim.graph.links:
+        if l.source == node_id:
+            nbrs.add(l.target)
+        elif l.target == node_id:
+            nbrs.add(l.source)
+    return nbrs
 
 
 def test_hacking_both_neighbours_isolates_a_drone():
     sim = Simulator()
-    # D1's only neighbours are D2 and D7. Quarantine both -> D1 is cut off.
-    sim.command("hack", "D2")
-    sim.command("hack", "D7")
+    # In the dense mesh, killing 2 neighbours no longer isolates a node — that
+    # redundancy is the point. To truly isolate a drone we must hack its ENTIRE
+    # neighbour set. D8 is an outer-ring node; surround it completely.
+    target = "D8"
+    neighbours = _neighbours_of(sim, target)
+    assert neighbours, "target must have neighbours"
+    for nb in neighbours:
+        sim.command("hack", nb)
     state = sim.tick()
-    d1 = next(n for n in state["nodes"] if n["id"] == "D1")
-    assert d1["status"] == "isolated"
-    assert any(e["kind"] == "detection" and "ISOLATED" in e["message"] for e in state["events"])
-    assert state["threat_level"] == "CRITICAL"  # 2 hacked drones
+
+    node = next(n for n in state["nodes"] if n["id"] == target)
+    assert node["status"] == "isolated"
+    assert any(
+        e["kind"] == "detection" and "ISOLATED" in e["message"]
+        for e in state["events"]
+    )
+    # Multiple hacked drones + an isolated one -> CRITICAL.
+    assert state["threat_level"] == "CRITICAL"
 
 
 def test_reset_clears_quarantine_and_isolation():

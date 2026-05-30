@@ -373,12 +373,17 @@ class Simulator:
             if link.status != "jammed":
                 continue
             live_reroute_keys.add(link.id)
+            # Route AROUND every removed (hacked/dark) node and every dead link
+            # so the detour never traverses a severed link.
             path = shortest_path(
                 self.graph, link.source, link.target, avoid=dead, avoid_nodes=removed
             )
             if path and len(path) > 1:
                 for a, b in zip(path, path[1:]):
-                    rerouted_links.add(self.graph.link_id(a, b))
+                    lid = self.graph.link_id(a, b)
+                    # Never schedule a severed (down) link to be repainted.
+                    if lid not in dead:
+                        rerouted_links.add(lid)
                 defending_nodes.update(path)
                 if link.id not in self._announced_reroutes:
                     self._emit("reroute", f"Rerouted around {link.id} via {'→'.join(path)}")
@@ -408,7 +413,10 @@ class Simulator:
                     )
                     if path and len(path) > 1:
                         for a, b in zip(path, path[1:]):
-                            rerouted_links.add(self.graph.link_id(a, b))
+                            lid = self.graph.link_id(a, b)
+                            # Never schedule a severed (down) link to be repainted.
+                            if lid not in dead:
+                                rerouted_links.add(lid)
                         defending_nodes.update(path)
                         healed = True
             if key not in self._announced_reroutes:
@@ -447,7 +455,10 @@ class Simulator:
                 self._emit("recovery", f"Drone {node_id} reconnected to swarm")
                 self._announced_isolated.discard(node_id)
 
-        # Paint detour links (only healthy links carrying rerouted traffic).
+        # Paint detour links. ONLY currently-healthy links may become rerouted —
+        # a severed link (status "down", incident to a hacked/dark node) is NEVER
+        # repainted to "rerouted". This guard is the contract that keeps a hacked
+        # node's incident links rendering as down (severed), not rerouted.
         for link in self.graph.links:
             if link.status == "healthy" and link.id in rerouted_links:
                 link.status = "rerouted"

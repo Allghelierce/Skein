@@ -1,46 +1,74 @@
 """SwarmGraph — the drone-swarm mesh topology.
 
-Seven drones (D1..D7) with fixed 0..1 layout coordinates and a connected mesh
-where each node has 2-3 neighbours. The topology is deliberately redundant (a
-ring plus two chords) so that killing any single link still leaves an alternate
-path — that redundancy is what makes the self-healing reroute real, not faked.
+A dense tactical swarm: 13 drones (D1..D13) in a two-ring + core formation,
+wired by k-nearest-neighbour so EVERY drone has >=4 neighbours. That density is
+the whole point — a real resilient swarm survives losing several nodes. With this
+mesh the operator can jam links and quarantine multiple drones and the network
+keeps finding alternate paths (genuine networkx reroute), instead of partitioning
+the moment two nodes drop. The redundancy is what makes the self-healing real.
 
 Node/link `status` fields are mutable; the simulator drives them each tick.
 Statuses match the shared WS contract (frontend/lib/types.ts):
-  NodeStatus = "healthy" | "attacked" | "defending"
+  NodeStatus = "healthy" | "attacked" | "defending" | "isolated"
   LinkStatus = "healthy" | "jammed" | "rerouted" | "down"
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Optional
 
 
 # Fixed command-center layout in 0..1 coords (x right, y down).
+# A core node, an inner ring of 4, and an outer ring of 8 — a believable
+# tactical formation that fills the map and packs in redundant cross-links.
 _NODE_LAYOUT: dict[str, tuple[float, float]] = {
-    "D1": (0.15, 0.20),
-    "D2": (0.40, 0.12),
-    "D3": (0.70, 0.18),
-    "D4": (0.85, 0.45),
-    "D5": (0.62, 0.62),
-    "D6": (0.32, 0.70),
-    "D7": (0.12, 0.50),
+    "D1": (0.50, 0.50),   # core
+    # inner ring
+    "D2": (0.50, 0.28),
+    "D3": (0.72, 0.50),
+    "D4": (0.50, 0.72),
+    "D5": (0.28, 0.50),
+    # outer ring
+    "D6": (0.50, 0.10),
+    "D7": (0.78, 0.22),
+    "D8": (0.90, 0.50),
+    "D9": (0.78, 0.78),
+    "D10": (0.50, 0.90),
+    "D11": (0.22, 0.78),
+    "D12": (0.10, 0.50),
+    "D13": (0.22, 0.22),
 }
 
-# Ring (D1-D2-...-D7-D1) plus two chords (D2-D6, D3-D5) for redundancy.
-# Result: each node has 2-3 neighbours and every single-link cut is survivable.
-_EDGES: list[tuple[str, str]] = [
-    ("D1", "D2"),
-    ("D2", "D3"),
-    ("D3", "D4"),
-    ("D4", "D5"),
-    ("D5", "D6"),
-    ("D6", "D7"),
-    ("D7", "D1"),
-    ("D2", "D6"),
-    ("D3", "D5"),
-]
+# Minimum neighbours per drone. k-nearest wiring below guarantees this, giving a
+# mesh dense enough to survive multiple node losses and still self-heal.
+_MIN_DEGREE = 4
+
+
+def _build_dense_edges(
+    layout: dict[str, tuple[float, float]], min_degree: int = _MIN_DEGREE
+) -> list[tuple[str, str]]:
+    """Connect each drone to its `min_degree` nearest neighbours (undirected).
+
+    Symmetric k-NN: an edge exists if either endpoint counts the other among its
+    k nearest. This reliably yields a single connected component where every node
+    has at least `min_degree` links — the redundancy the self-healing demo needs.
+    """
+    ids = list(layout)
+    edges: set[tuple[str, str]] = set()
+    for a in ids:
+        ax, ay = layout[a]
+        others = sorted(
+            (b for b in ids if b != a),
+            key=lambda b: (layout[b][0] - ax) ** 2 + (layout[b][1] - ay) ** 2,
+        )
+        for b in others[:min_degree]:
+            edges.add(tuple(sorted((a, b))))
+    return sorted(edges)
+
+
+_EDGES: list[tuple[str, str]] = _build_dense_edges(_NODE_LAYOUT)
 
 
 @dataclass
