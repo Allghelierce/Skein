@@ -925,7 +925,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           onEdgeMouseEnter={onEdgeEnter}
           onEdgeMouseLeave={clearHover}
           fitView
-          fitViewOptions={FIT_PADDING}
+          fitViewOptions={{ padding: FIT_PADDING }}
           nodesDraggable
           nodesConnectable={false}
           panOnDrag={false}
