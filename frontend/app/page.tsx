@@ -1,11 +1,12 @@
 // frontend/app/page.tsx
 // Skein command center — "Gotham" layout.
-//   TOP     slim SKEIN brand strip + MissionStatus ribbon
+//   TOP     slim SKEIN brand strip
 //   STAGE   SwarmMap full-bleed, edge to edge (the centerpiece IS the background)
 //   FLOAT   glass intel rails over the map:
 //             left  → Detector · Why Flagged · Model Report launcher
 //             right → Raw Data Scope · Activity feed
-//           bottom dock → Attack controls (judge levers)
+//           bottom dock   → Attack controls (judge levers)
+//           bottom-right  → tray-less comms-to-base readout (mission stakes)
 //   POPOUT  Model Report opens as an overlay so the rail never scrolls
 "use client";
 
@@ -13,9 +14,9 @@ import { useEffect, useMemo, useState } from "react";
 import { AttackControls } from "@/components/AttackControls";
 import { BootScreen } from "@/components/BootScreen";
 import { BrandBar } from "@/components/BrandBar";
+import { CommsReadout } from "@/components/CommsReadout";
 import { DetectorPanel } from "@/components/DetectorPanel";
 import { EventFeed } from "@/components/EventFeed";
-import { MissionStatus } from "@/components/MissionStatus";
 import { RawDataScope } from "@/components/RawDataScope";
 import { ReportCard } from "@/components/ReportCard";
 import { SwarmMap } from "@/components/SwarmMap";
@@ -44,8 +45,6 @@ export default function Page() {
   return (
     <div className="gotham-layout relative z-10 flex h-screen flex-col">
       <BootScreen />
-      <BrandBar />
-      <MissionStatus analysis={analysis} />
 
       {/* stage: the map fills everything; panels float on top */}
       <main className="gotham-vignette relative min-h-0 flex-1 overflow-hidden">
@@ -57,6 +56,11 @@ export default function Page() {
             onSelect={setSelected}
             isolated={isolated}
           />
+        </div>
+
+        {/* brand — centered, tray-less, floating over the top of the map */}
+        <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center">
+          <BrandBar />
         </div>
 
         {/* left rail — detection + reasoning + model report launcher */}
@@ -77,8 +81,9 @@ export default function Page() {
           </button>
         </aside>
 
-        {/* right rail — live data feed + activity */}
-        <aside className="gotham-rail absolute bottom-3 right-3 top-14 z-10 flex w-[300px] flex-col gap-3">
+        {/* right rail — live data feed + activity (stops short of the bottom-right
+            so the comms readout can tuck into the corner beneath it) */}
+        <aside className="gotham-rail absolute bottom-[140px] right-3 top-14 z-10 flex w-[300px] flex-col gap-3">
           <div className="h-[230px] shrink-0">
             <RawDataScope state={state} />
           </div>
@@ -86,6 +91,11 @@ export default function Page() {
             <EventFeed state={state} />
           </div>
         </aside>
+
+        {/* bottom-right — tray-less comms-to-base readout (was the top ribbon) */}
+        <div className="absolute bottom-3 right-4 z-20 w-[300px]">
+          <CommsReadout analysis={analysis} />
+        </div>
 
         {/* bottom dock — judge levers, floating center */}
         <div className="glass-dock absolute bottom-3 left-1/2 z-20 w-[720px] max-w-[calc(100%-640px)] -translate-x-1/2 overflow-hidden">

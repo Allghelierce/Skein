@@ -147,8 +147,51 @@ interface DroneData extends Record<string, unknown> {
   isolated: boolean;
   combat: boolean;
   risk: number; // 0..1 attack-likeness of this drone's neighbourhood
+  reducedMotion: boolean;
 }
 type DroneNode = Node<DroneData, "drone">;
+
+/* ── Airspeed wake ──────────────────────────────────────────────────────────
+   The terrain scrolls DOWN (forward flight reads as up-screen), so a flying
+   drone leaves a wake that falls BEHIND it — downward. Twin tapering streaks
+   straddle the label, and small particles shed down them, so each drone reads
+   as actively cutting forward over the moving ground rather than pinned in place. */
+function DroneWake({ color, reduced }: { color: string; reduced: boolean }) {
+  const offsets = [-5, 5];
+  return (
+    <span className="pointer-events-none absolute left-1/2 top-1/2" aria-hidden>
+      {offsets.map((dx) => (
+        <span key={dx}>
+          <span
+            className="absolute"
+            style={{
+              left: dx - 1,
+              top: 4,
+              width: 2,
+              height: 15,
+              background: `linear-gradient(to bottom, ${color}, transparent)`,
+              filter: "blur(1px)",
+              opacity: 0.32,
+            }}
+          />
+          {!reduced && (
+            <span
+              className="drone-wake-dot absolute rounded-full"
+              style={{
+                left: dx - 1.25,
+                top: 4,
+                width: 2.5,
+                height: 2.5,
+                background: color,
+                animationDelay: `${(dx + 5) * 0.07}s`,
+              }}
+            />
+          )}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 function DroneNode({ data }: NodeProps<DroneNode>) {
   const threat = data.status === "attacked";
@@ -174,6 +217,11 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
   const risk = data.risk ?? 0;
   const showRisk = !offline && !threat && risk >= 0.18;
 
+  // a drone is "flying" (and so leaves a wake) unless it's cut off or gone dark.
+  // ("down" is a runtime host-node status the backend emits but NodeStatus omits.)
+  const flying = !offline && (data.status as string) !== "down";
+  const wakeColor = colored ? color : "#4fae86";
+
   return (
     <div
       className="relative grid place-items-center"
@@ -183,6 +231,7 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
       <Handle type="source" position={Position.Bottom} style={HANDLE_STYLE} />
 
       <div className={offline ? "grid place-items-center" : "drone-hover grid place-items-center"} style={hoverStyle}>
+        {flying && <DroneWake color={wakeColor} reduced={data.reducedMotion} />}
         {showRisk && (
           <>
             <span
@@ -516,6 +565,17 @@ function MapField() {
         <TerrainTile />
       </div>
 
+      {/* tactical grid scrolling top-to-bottom — faster than the relief below, so
+          the parallax makes the swarm clearly read as covering ground in flight */}
+      <div
+        className="grid-scroll absolute inset-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(77,125,163,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(77,125,163,0.12) 1px, transparent 1px)",
+          backgroundSize: "78px 78px",
+        }}
+      />
+
       <div
         className="absolute inset-0"
         style={{
@@ -772,11 +832,12 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
         isolated: isolated.has(n.id),
         combat,
         risk: riskMap.get(n.id) ?? 0,
+        reducedMotion,
       },
       draggable: true,
       };
     });
-  }, [state?.nodes, selected, isolated, combat, riskMap, posOverride]);
+  }, [state?.nodes, selected, isolated, combat, riskMap, posOverride, reducedMotion]);
 
   const edges: DataEdge[] = useMemo(() => {
     return (state?.links ?? []).map((l) => {

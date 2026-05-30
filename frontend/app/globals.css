@@ -130,9 +130,31 @@ body {
   to { transform: translate3d(0, 0, 0); }
 }
 .terrain-scroll {
-  animation: terrain-scroll 13s linear infinite;
+  animation: terrain-scroll 9s linear infinite;
   will-change: transform;
 }
+
+/* tactical grid scroll — the pattern tiles every 78px, so shifting one full cell
+   downward loops seamlessly. Faster than the terrain for a parallax "covering
+   ground" read as the swarm flies forward (up-screen). */
+@keyframes grid-scroll {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 0 78px, 0 78px; }
+}
+.grid-scroll {
+  animation: grid-scroll 2.2s linear infinite;
+  will-change: background-position;
+}
+
+/* airspeed wake — particles shed downward behind each drone (forward flight is
+   up-screen, so the wake trails down), reinforcing that the swarm is travelling
+   over the moving terrain rather than hovering in place. */
+@keyframes drone-wake {
+  0%   { transform: translateY(0); opacity: 0; }
+  18%  { opacity: 0.6; }
+  100% { transform: translateY(13px); opacity: 0; }
+}
+.drone-wake-dot { animation: drone-wake 0.9s linear infinite; will-change: transform; }
 
 /* idle drift — drones hold formation while flying: a gentle bob plus a tiny
    side-to-side sway so the swarm feels alive and airborne, not pinned. */
@@ -170,13 +192,15 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .drone-hover,
   .terrain-scroll,
+  .grid-scroll,
   .edge-jammed,
   .edge-reroute,
   .animate-skein-ring,
   .animate-skein-pulse,
   .shockwave,
   .edge-snap,
-  .risk-pulse {
+  .risk-pulse,
+  .drone-wake-dot {
     animation: none !important;
   }
 }
