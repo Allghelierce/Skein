@@ -308,7 +308,6 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
   const active = data?.active ?? false;
   const selected = data?.selected ?? false;
   const confidence = data?.confidence ?? 0;
-  const attack = data?.attack ?? false;
   const dead = data?.dead ?? false;
   const combat = data?.combat ?? false;
   const seq = data?.seq ?? 0;
@@ -328,7 +327,7 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
     );
   }
 
-  const width = (jammed ? 1.2 : rerouted ? 1.8 : 0.75) + (selected ? 0.8 : 0);
+  const width = (jammed ? 1.1 : rerouted ? 1 : 0.7) + (selected ? 0.7 : 0);
   // spotlight: quiet links recede during combat
   let opacity = jammed || rerouted ? 1 : active ? 0.6 : 0.42;
   if (combat && !jammed && !rerouted) opacity = active ? 0.26 : 0.16;
@@ -337,7 +336,7 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
   const packetColor = jammed ? HEX.red : rerouted ? HEX.green : "#4fae86";
   let packetOpacity = jammed || rerouted ? 1 : active ? 0.9 : 0.55;
   if (combat && !jammed && !rerouted) packetOpacity *= 0.4;
-  const packetR = jammed ? 2 : rerouted ? 3 : active ? 2.3 : 1.9;
+  const packetR = jammed ? 2 : rerouted ? 2.2 : active ? 2.1 : 1.8;
   const dur = jammed ? "0.8s" : rerouted ? "0.7s" : active ? "1.5s" : "2.4s";
 
   const labelColor = jammed ? HEX.red : rerouted ? HEX.green : HEX.faint;
@@ -358,9 +357,9 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
           opacity,
           transition: "opacity 0.4s ease",
           filter: jammed
-            ? "drop-shadow(0 0 3px #ff3b5c)"
+            ? "drop-shadow(0 0 2px #ff3b5c)"
             : rerouted
-              ? "drop-shadow(0 0 5px #2ee27a)"
+              ? "drop-shadow(0 0 3px #2ee27a)"
               : undefined,
         }}
       />
@@ -419,10 +418,10 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
       {rerouted && !reduced && (
         <circle
           key={`heal-${id}-${seq}`}
-          r={4.5}
+          r={3}
           fill={HEX.green}
           opacity={0}
-          style={{ filter: `drop-shadow(0 0 6px ${HEX.green})` }}
+          style={{ filter: `drop-shadow(0 0 4px ${HEX.green})` }}
         >
           <animateMotion dur="0.55s" begin={`${hopDelay}s`} repeatCount="1" path={path} fill="freeze" />
           <animate
@@ -453,21 +452,23 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
             }}
           />
         )}
-        <div
-          className="mono pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 tabular-nums"
-          style={{
-            left: labelX,
-            top: labelY,
-            fontSize: "0.55rem",
-            color: labelColor,
-            fontWeight: attack ? 700 : 400,
-            opacity: combat && !jammed && !rerouted ? 0.4 : jammed || rerouted ? 1 : 0.7,
-            transition: "opacity 0.4s ease",
-            textShadow: "0 0 4px #000, 0 0 4px #000",
-          }}
-        >
-          {Math.round(confidence * 100)}%
-        </div>
+        {/* only the attacked link shows its confidence — the other 27 links stay
+            label-free so the graph reads clean (hover any link for its detail) */}
+        {jammed && (
+          <div
+            className="mono pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 tabular-nums"
+            style={{
+              left: labelX,
+              top: labelY - 11,
+              fontSize: "0.55rem",
+              color: labelColor,
+              fontWeight: 700,
+              textShadow: "0 0 4px #000, 0 0 4px #000",
+            }}
+          >
+            {Math.round(confidence * 100)}%
+          </div>
+        )}
       </EdgeLabelRenderer>
     </>
   );
@@ -547,7 +548,7 @@ function MapField() {
               values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 1 1 0 0"
               result="lineAlpha"
             />
-            <feFlood floodColor="#63636b" result="line" />
+            <feFlood floodColor="#7d7d88" result="line" />
             <feComposite in="line" in2="lineAlpha" operator="in" result="lines" />
             <feComponentTransfer in="relief" result="reliefDim">
               <feFuncA type="linear" slope="0.85" />
@@ -560,7 +561,7 @@ function MapField() {
         </defs>
       </svg>
 
-      <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.5 }}>
+      <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.62 }}>
         <TerrainTile />
         <TerrainTile />
       </div>
@@ -569,7 +570,7 @@ function MapField() {
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(120% 120% at 50% 47%, transparent 36%, rgba(2,4,7,0.94) 100%)",
+            "radial-gradient(120% 120% at 50% 47%, transparent 42%, rgba(2,4,7,0.92) 100%)",
         }}
       />
     </div>
