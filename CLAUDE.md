@@ -1,4 +1,4 @@
-# Project: SWARMSHIELD
+# Project: Skein
 
 A 1.5-day SOLO defense-hackathon project for the **Bow Capital x Firestorm** hackathon (Track 2: AI Compute / EE — secure mesh networks, RF jamming). It is also the owner's **data-science portfolio piece**.
 

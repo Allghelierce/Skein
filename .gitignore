@@ -20,11 +20,13 @@ venv/
 .ipynb_checkpoints/
 *.joblib
 *.pkl
+backend/models/
 
 # Data (large datasets - don't commit raw CIC dumps)
 data/raw/
+**/data/raw/
 *.csv
-!data/sample/*.csv
+!**/data/sample/*.csv
 
 # OS / editor
 .DS_Store

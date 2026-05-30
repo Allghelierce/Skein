@@ -1,0 +1,40 @@
+{
+  "planPath": "docs/superpowers/plans/2026-05-29-skein-mvp.md",
+  "tasks": [
+    {
+      "id": 1,
+      "subject": "Task 0: Foundation — repo scaffold + shared contracts",
+      "status": "pending",
+      "description": "Create repo skeleton + 3 shared contracts (schema.py, types.ts, cic_sample.csv stub) so A/B/C parallelize. See plan Task 0 + Shared Contracts.\n\n```json:metadata\n{\"files\": [\"backend/ml/schema.py\", \"frontend/lib/types.ts\", \"backend/requirements.txt\", \"backend/data/sample/cic_sample.csv\", \".gitignore\"], \"verifyCommand\": \"cd backend && python -c \\\"import ml.schema as s; print(len(s.FEATURE_COLUMNS), s.ALL_LABELS)\\\"\", \"acceptanceCriteria\": [\"schema.py exposes 10 FEATURE_COLUMNS + ALL_LABELS + ACTION_TO_ATTACK\", \"types.ts matches Contract 2\", \"cic_sample.csv stub correct\", \"requirements.txt pins 8 deps\"]}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task A: ML detector + portfolio notebook (Python, PARALLEL)",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "Classic ML detector trained on CIC-IDS2017 + portfolio notebook + real cic_sample.csv. See plan Task A.\n\n```json:metadata\n{\"files\": [\"backend/ml/train.py\", \"backend/ml/detector.py\", \"backend/ml/evaluate.py\", \"backend/ml/test_detector.py\", \"notebooks/skein_ml.ipynb\", \"backend/data/sample/cic_sample.csv\"], \"verifyCommand\": \"cd backend && python ml/train.py && pytest ml/test_detector.py -v\", \"acceptanceCriteria\": [\"3 classic models compared, best saved\", \"Detector.predict returns label/attack_type/confidence\", \"evaluate.py confusion matrix + importances\", \"notebook end-to-end\", \"real cic_sample.csv\", \"macro-F1 >= 0.90\"]}\n```"
+    },
+    {
+      "id": 3,
+      "subject": "Task B: Mesh simulator + WebSocket server (Python, PARALLEL)",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "Swarm mesh + tick loop sampling real CIC rows + detection + attack injection + self-healing reroute + FastAPI WS server. See plan Task B.\n\n```json:metadata\n{\"files\": [\"backend/mesh/graph.py\", \"backend/mesh/routing.py\", \"backend/mesh/simulator.py\", \"backend/app.py\", \"backend/mesh/test_routing.py\", \"backend/mesh/test_simulator.py\"], \"verifyCommand\": \"cd backend && pytest mesh/ -v\", \"acceptanceCriteria\": [\"7-node connected mesh\", \"routing reroutes around dead links\", \"tick() returns Contract-2 state\", \"command() jam/hack/reset\", \"jam reroutes <=2 ticks; reset recovery\", \"WS streams state ~1/s with CORS\"]}\n```"
+    },
+    {
+      "id": 4,
+      "subject": "Task C: Command-center dashboard (Next.js/TS, PARALLEL)",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "Dark command-center UI (SwarmMap, DetectorPanel, EventFeed, AttackControls, StatusBar) driven by WS, mock-buildable. See plan Task C.\n\n```json:metadata\n{\"files\": [\"frontend/package.json\", \"frontend/app/page.tsx\", \"frontend/app/globals.css\", \"frontend/lib/ws.ts\", \"frontend/components/SwarmMap.tsx\", \"frontend/components/DetectorPanel.tsx\", \"frontend/components/EventFeed.tsx\", \"frontend/components/AttackControls.tsx\", \"frontend/components/StatusBar.tsx\"], \"verifyCommand\": \"cd frontend && npx tsc --noEmit\", \"acceptanceCriteria\": [\"5 regions per layout\", \"SwarmMap animates status\", \"click-select + send commands\", \"panels update live\", \"works in MOCK\", \"tsc passes\"]}\n```"
+    },
+    {
+      "id": 5,
+      "subject": "Task D: Integration, polish, demo runbook (LAST)",
+      "status": "pending",
+      "blockedBy": [2, 3, 4],
+      "description": "End-to-end integration (real Detector live), polish, demo script + cached fallback. See plan Task D.\n\n```json:metadata\n{\"files\": [\"backend/mesh/simulator.py\", \"frontend/lib/ws.ts\", \"frontend/.env.local\", \"docs/DEMO_SCRIPT.md\", \"backend/data/sample/cached_run.json\", \"README.md\"], \"verifyCommand\": \"manual end-to-end per demo script (both servers up)\", \"acceptanceCriteria\": [\"live end-to-end real ML\", \"judge jam/hack/reset works\", \"live detector is real model\", \"cached fallback works\", \"DEMO_SCRIPT.md complete\", \"README correct\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-05-29T00:00:00Z"
+}

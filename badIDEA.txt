@@ -82,14 +82,33 @@ Dark "command center" theme, neon green/red/blue, high-contrast for projector.
   TOP BAR : LIVE indicator + overall threat level.
 
 ===============================================================================
-7. STACK
+7. STACK & ARCHITECTURE (LOCKED)
 ===============================================================================
-- Frontend: Next.js + TypeScript, Tailwind + shadcn/ui, React Flow (graph),
-  Framer Motion (animations).
-- Mesh: real message-passing between node processes/objects (real routing,
-  real failover - NOT fake variables).
-- ML: classic models (scikit-learn / XGBoost), trained offline, served live.
-- Runs locally on one laptop for the demo.
+Two processes on one laptop, talking over a WebSocket:
+
+  PYTHON BACKEND (FastAPI + uvicorn)  -- the brain + the world
+    - Mesh simulator: nodes/links graph, per-tick traffic, routing + reroute,
+      attack injection (jam a link / hack a node).
+    - ML detector: classic model (scikit-learn / XGBoost) trained on CIC,
+      loaded and called per tick to score each link.
+    - Emits full swarm state over WebSocket every tick (~1s); accepts attack/
+      reset commands.
+
+  NEXT.JS + TYPESCRIPT FRONTEND  -- the command center
+    - Tailwind + shadcn/ui, React Flow (network graph), Framer Motion.
+    - Connects to the backend WebSocket; renders map + panels + controls.
+
+KEY INSIGHT - how the ML stays real and never "misfires" on stage:
+  The mesh simulator does NOT invent feature numbers. Each link, per tick,
+  SAMPLES A REAL ROW from a prepared CIC sample:
+    - healthy link  -> sample a real BENIGN flow row
+    - attacked link -> sample a real ATTACK flow row (matching the attack type)
+  The detector (trained on those same CIC columns) then scores it. Because the
+  live features ARE real CIC data, the model classifies them correctly and the
+  demo is both robust AND genuinely data-driven. This shared FEATURE SCHEMA
+  (the chosen CIC columns) is the contract between the ML and mesh workstreams.
+
+- Runs locally on one laptop for the demo. Backend on :8000, frontend on :3000.
 
 ===============================================================================
 8. BUILD ORDER ("secure the demo first")
