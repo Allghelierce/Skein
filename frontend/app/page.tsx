@@ -33,9 +33,6 @@ export default function Page() {
   // Model Report lives in an overlay (opened from the left rail) so the intel
   // rail itself stays short — no scrolling to reach the detector reasoning.
   const [reportOpen, setReportOpen] = useState(false);
-  // while a unit is in focus, the map's inspector takes the bottom-right corner,
-  // so we yield it by hiding the comms readout that normally lives there.
-  const [inspecting, setInspecting] = useState(false);
   useEffect(() => {
     if (!reportOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setReportOpen(false);
@@ -57,7 +54,6 @@ export default function Page() {
             onSelect={setSelected}
             isolated={isolated}
             mode={mode}
-            onInspectingChange={setInspecting}
           />
         </div>
 
@@ -84,13 +80,10 @@ export default function Page() {
           </div>
         </aside>
 
-        {/* bottom-right — tray-less comms-to-base readout (was the top ribbon).
-            Hidden while inspecting a unit, so the map's inspector owns the corner. */}
-        {!inspecting && (
-          <div className="absolute bottom-3 right-4 z-20 w-[280px]">
-            <CommsReadout analysis={analysis} />
-          </div>
-        )}
+        {/* bottom-right — tray-less comms-to-base readout (was the top ribbon) */}
+        <div className="absolute bottom-3 right-4 z-20 w-[280px]">
+          <CommsReadout analysis={analysis} />
+        </div>
 
         {/* bottom dock — judge levers, floating center */}
         <div className="glass-dock absolute bottom-3 left-1/2 z-20 w-[720px] max-w-[calc(100%-640px)] -translate-x-1/2 overflow-hidden">

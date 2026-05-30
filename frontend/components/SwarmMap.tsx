@@ -604,9 +604,8 @@ function nodeSource(node: SwarmNode, mode: "mock" | "live"): { text: string; col
   return { text: "simulated · backend", color: HEX.dim };
 }
 
-// Fixed bottom-right inspector — shows the hovered unit (or, when nothing is
-// hovered, the last-clicked one). Replaces the old cursor-following tooltip; it
-// sits where the comms readout is and overlays it only while a unit is in focus.
+// Fixed bottom-left inspector — shows the hovered unit (or, when nothing is
+// hovered, the last-clicked one). Replaces the old cursor-following tooltip.
 function DetailCard({
   state,
   focus,
@@ -694,7 +693,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="pointer-events-none absolute bottom-3 right-4 z-30 w-[280px] rounded-lg border border-line bg-panel/95 p-3 shadow-xl backdrop-blur">
+    <div className="pointer-events-none absolute bottom-3 left-4 z-30 w-[280px] rounded-lg border border-line bg-panel/95 p-3 shadow-xl backdrop-blur">
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-ink">{title}</span>
         <span
@@ -747,12 +746,9 @@ interface Props {
   onSelect: (sel: Selection) => void;
   isolated: Set<string>;
   mode: "mock" | "live";
-  // fired when a unit is/ isn't in focus, so the page can yield the bottom-right
-  // corner (the comms readout) to the inspector while inspecting.
-  onInspectingChange?: (inspecting: boolean) => void;
 }
 
-export function SwarmMap({ state, selected, onSelect, isolated, mode, onInspectingChange }: Props) {
+export function SwarmMap({ state, selected, onSelect, isolated, mode }: Props) {
   // Gate the interactive ReactFlow canvas (and anything that reads window/
   // measures the DOM) behind a client-only mounted flag. The server render and
   // the first client render are therefore identical — just the static HUD frame
@@ -920,13 +916,6 @@ export function SwarmMap({ state, selected, onSelect, isolated, mode, onInspecti
   // optional, mutable audio cues — off by default (autoplay policy + restraint)
   const [audioOn, setAudioOn] = useState(false);
   useAudioCues({ state, isolatedCount: isolated.size, enabled: audioOn });
-
-  // tell the page when a unit is in focus so it can hide the comms readout that
-  // shares the bottom-right corner with the inspector.
-  const inspecting = !!focus;
-  useEffect(() => {
-    onInspectingChange?.(inspecting);
-  }, [inspecting, onInspectingChange]);
 
   return (
     <HudFrame className="relative min-h-0 flex-1 overflow-hidden">
