@@ -27,7 +27,7 @@ export function DetectorPanel({ state }: Props) {
   const pred = focus?.prediction;
   const isAttack = !!pred?.attack_type;
   const confidence = pred?.confidence ?? 0;
-  const color = isAttack ? HEX.red : HEX.green;
+  const color = isAttack ? HEX.red : HEX.ink;
   const pctVal = Math.round(confidence * 100);
 
   return (
@@ -35,7 +35,7 @@ export function DetectorPanel({ state }: Props) {
       title="ML Detector"
       right={
         <span className="flex items-center gap-1.5 text-[0.68rem] text-ink-dim">
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.green }} />
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.dim }} />
           {MODEL_NAME}
         </span>
       }

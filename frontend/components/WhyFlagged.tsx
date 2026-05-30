@@ -52,7 +52,7 @@ export function WhyFlagged({ state }: Props) {
               exit={{ opacity: 0 }}
               className="flex items-center gap-2 text-xs text-ink-dim"
             >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.green }} />
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.dim }} />
               No active threats — all flows within normal range.
             </motion.div>
           ) : (

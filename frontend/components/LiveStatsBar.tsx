@@ -15,15 +15,13 @@ interface Props {
 
 export function LiveStatsBar({ state, analysis }: Props) {
   const stats = useSwarmStats(state, analysis);
-  const uptimeColor = stats.uptimePct >= 90 ? HEX.green : HEX.red;
+  const uptimeColor = stats.uptimePct >= 90 ? HEX.ink : HEX.red;
 
   return (
     <div className="flex items-center gap-5 overflow-x-auto border border-line bg-panel px-4 py-2.5">
       <span className="flex items-center gap-2 whitespace-nowrap">
-        <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.green }} />
-        <span className="label-xs" style={{ color: HEX.green }}>
-          detector online
-        </span>
+        <span className="h-1.5 w-1.5 rounded-full animate-skein-pulse" style={{ background: HEX.green }} />
+        <span className="label-xs">detector online</span>
       </span>
 
       <Divider />

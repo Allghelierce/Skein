@@ -1,6 +1,7 @@
 // frontend/lib/palette.ts
 // Restraint: neutral by default, color only where it carries meaning.
-// green = healthy / healing, red = hostile.
+// green = live data feed + healing pulse, red = hostile, amber = rising risk,
+// neutral (ink/grey) = resting / nominal. Green is NOT the "all good" colour.
 
 import type { LinkStatus, NodeStatus, ThreatLevel } from "./types";
 
@@ -41,7 +42,8 @@ export function linkColor(status: LinkStatus): string {
 }
 
 export function threatColor(level: ThreatLevel): string {
-  return level === "NOMINAL" ? HEX.green : HEX.red;
+  // nominal reads neutral; threat brings red. (green is reserved for data/healing)
+  return level === "NOMINAL" ? HEX.ink : HEX.red;
 }
 
 export const EVENT_COLOR: Record<string, string> = {

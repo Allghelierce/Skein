@@ -717,6 +717,14 @@ interface Props {
 }
 
 export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
+  // Gate the interactive ReactFlow canvas (and anything that reads window/
+  // measures the DOM) behind a client-only mounted flag. The server render and
+  // the first client render are therefore identical — just the static HUD frame
+  // + terrain — which removes the hydration mismatch. ReactFlow then mounts in
+  // an effect, exactly as before, so behaviour and the WS data flow are unchanged.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const reducedMotion = usePrefersReducedMotion();
   // remember last status per link so we can fire one-shot effects on transitions
   const prevStatus = useRef<Map<string, SwarmLink["status"]>>(new Map());
@@ -898,6 +906,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
       <MapField />
 
       <div className="absolute inset-0 z-10" onMouseMove={onHoverMove} onMouseLeave={clearHover}>
+        {mounted && (
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -923,6 +932,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           preventScrolling={false}
           proOptions={{ hideAttribution: true }}
         />
+        )}
       </div>
 
       <DetailCard state={state} selected={selected} />

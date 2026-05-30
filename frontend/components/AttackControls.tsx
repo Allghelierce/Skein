@@ -62,11 +62,10 @@ export function AttackControls({ selected, send }: Props) {
         <button
           type="button"
           className="btn"
-          style={{ color: HEX.green, borderColor: `${HEX.green}55` }}
           onClick={() => send({ type: "command", action: "reset", target: null })}
           title="Restore the whole swarm"
         >
-          <Dot color={HEX.green} /> Reset
+          <Dot color={HEX.dim} /> Reset
         </button>
       </div>
     </footer>

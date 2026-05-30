@@ -20,7 +20,7 @@ const COPY: Record<MeshAnalysis["status"], { label: string; sub: string }> = {
 export function MissionStatus({ analysis }: Props) {
   const { status, commsPct, isolated, compromised } = analysis;
   const danger = status === "partitioned";
-  const color = danger ? HEX.red : HEX.green;
+  const color = danger ? HEX.red : HEX.ink;
   const copy = COPY[status];
 
   return (
