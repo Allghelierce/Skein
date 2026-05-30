@@ -513,15 +513,29 @@ function MapField() {
               values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0"
               result="height"
             />
+            {/* deep, raking hillshade — low sun + tall surfaceScale throw long
+                shadows for pronounced 3D relief */}
             <feDiffuseLighting
               in="height"
-              surfaceScale="7"
-              diffuseConstant="1"
-              lightingColor="#3a3a40"
+              surfaceScale="16"
+              diffuseConstant="1.15"
+              lightingColor="#44444c"
               result="relief"
             >
-              <feDistantLight azimuth="235" elevation="44" />
+              <feDistantLight azimuth="235" elevation="32" />
             </feDiffuseLighting>
+            {/* specular ridge highlights — catch the crest lines so peaks pop out
+                of the dark valleys, giving the terrain real depth */}
+            <feSpecularLighting
+              in="height"
+              surfaceScale="16"
+              specularConstant="0.6"
+              specularExponent="17"
+              lightingColor="#a3a3b0"
+              result="spec"
+            >
+              <feDistantLight azimuth="235" elevation="48" />
+            </feSpecularLighting>
             <feColorMatrix
               in="noise"
               type="matrix"
@@ -550,31 +564,24 @@ function MapField() {
             <feFlood floodColor="#63636b" result="line" />
             <feComposite in="line" in2="lineAlpha" operator="in" result="lines" />
             <feComponentTransfer in="relief" result="reliefDim">
-              <feFuncA type="linear" slope="0.85" />
+              <feFuncA type="linear" slope="0.95" />
+            </feComponentTransfer>
+            <feComponentTransfer in="spec" result="specDim">
+              <feFuncA type="linear" slope="0.6" />
             </feComponentTransfer>
             <feMerge>
               <feMergeNode in="reliefDim" />
+              <feMergeNode in="specDim" />
               <feMergeNode in="lines" />
             </feMerge>
           </filter>
         </defs>
       </svg>
 
-      <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.5 }}>
+      <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.62 }}>
         <TerrainTile />
         <TerrainTile />
       </div>
-
-      {/* tactical grid scrolling top-to-bottom — faster than the relief below, so
-          the parallax makes the swarm clearly read as covering ground in flight */}
-      <div
-        className="grid-scroll absolute inset-0"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(140,140,150,0.16) 1px, transparent 1px), linear-gradient(90deg, rgba(140,140,150,0.09) 1px, transparent 1px)",
-          backgroundSize: "78px 78px",
-        }}
-      />
 
       <div
         className="absolute inset-0"
