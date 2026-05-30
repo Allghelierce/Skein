@@ -4,7 +4,7 @@
 // the healed reroute. Click to select; a detail card shows the live ML readout.
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -18,6 +18,8 @@ import {
   type Node,
   type NodeMouseHandler,
   type NodeProps,
+  type OnNodesChange,
+  type XYPosition,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { motion } from "framer-motion";
@@ -407,11 +409,28 @@ interface Props {
 export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
   const risk = useMemo(() => computeRisk(state), [state]);
 
+  // Drag overrides: once a judge moves a drone, its position is theirs to keep —
+  // we hold the dragged coords here so the per-tick state stream doesn't snap it
+  // back. Links recompute from live node positions, so they follow the hand.
+  const [positions, setPositions] = useState<Record<string, XYPosition>>({});
+  const onNodesChange = useCallback<OnNodesChange<DroneNode>>((changes) => {
+    setPositions((prev) => {
+      let next = prev;
+      for (const c of changes) {
+        if (c.type === "position" && c.position) {
+          if (next === prev) next = { ...prev };
+          next[c.id] = c.position;
+        }
+      }
+      return next;
+    });
+  }, []);
+
   const nodes: DroneNode[] = useMemo(() => {
     return (state?.nodes ?? []).map((n) => ({
       id: n.id,
       type: "drone",
-      position: { x: n.x * CANVAS_W, y: n.y * CANVAS_H },
+      position: positions[n.id] ?? { x: n.x * CANVAS_W, y: n.y * CANVAS_H },
       data: {
         label: n.id,
         status: n.status,
@@ -420,9 +439,9 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
         risk: risk.byNode.get(n.id) ?? 0,
         predicted: risk.predicted === n.id,
       },
-      draggable: false,
+      draggable: true,
     }));
-  }, [state?.nodes, selected, isolated, risk]);
+  }, [state?.nodes, selected, isolated, risk, positions]);
 
   const edges: DataEdge[] = useMemo(() => {
     return (state?.links ?? []).map((l) => ({
@@ -471,12 +490,13 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          onNodesChange={onNodesChange}
           onNodeClick={onNodeClick}
           onEdgeClick={onEdgeClick}
           onPaneClick={onPaneClick}
           fitView
           fitViewOptions={{ padding: 0.16 }}
-          nodesDraggable={false}
+          nodesDraggable
           nodesConnectable={false}
           panOnDrag={false}
           zoomOnScroll={false}
