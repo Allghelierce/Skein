@@ -578,7 +578,43 @@ function MapField() {
 }
 
 /* ── Selection detail card ──────────────────────────────────────────────── */
-function DetailCard({ state, selected }: { state: StateMessage | null; selected: Selection }) {
+
+// Where a unit sits in the formation, derived from the fixed topology
+// (D1 core · D2–D5 inner ring · D6–D13 outer ring). Host nodes are external.
+function droneRole(id: string, host: boolean): string {
+  if (host) return "host node";
+  const m = /^D(\d+)$/.exec(id);
+  if (!m) return "node";
+  const n = Number(m[1]);
+  if (n === 1) return "core";
+  if (n <= 5) return "inner ring";
+  return "outer ring";
+}
+
+// Single source of truth for the "is this unit simulated or a real device?" label,
+// shared by the click card and the hover tip so they never drift apart. Truthful by
+// construction: only a real registered host node with a live heartbeat reads "live".
+function nodeSource(node: SwarmNode, mode: "mock" | "live"): { text: string; color: string } {
+  if (mode === "mock") return { text: "simulated · mock", color: HEX.dim };
+  if (node.host) {
+    return node.status === "down"
+      ? { text: "host device · offline", color: HEX.red }
+      : { text: "host device · live", color: HEX.green };
+  }
+  return { text: "simulated · backend", color: HEX.dim };
+}
+
+function DetailCard({
+  state,
+  selected,
+  mode,
+  riskMap,
+}: {
+  state: StateMessage | null;
+  selected: Selection;
+  mode: "mock" | "live";
+  riskMap: Map<string, number>;
+}) {
   if (!selected || !state) return null;
 
   if (selected.kind === "link") {
@@ -599,11 +635,39 @@ function DetailCard({ state, selected }: { state: StateMessage | null; selected:
   if (!node) return null;
   const incident = state.links.filter((l) => l.source === node.id || l.target === node.id);
   const jammed = incident.filter((l) => l.status === "jammed").length;
-  const color = node.status === "attacked" ? HEX.red : node.status === "defending" ? HEX.green : HEX.ink;
+  const live = incident.filter((l) => l.active).length;
+  const risk = riskMap.get(node.id) ?? 0;
+  const host = !!node.host;
+  const down = node.status === "down";
+
+  // simulated here vs. physically running on a separate device (e.g. laptop 2)
+  const { text: source, color: sourceColor } = nodeSource(node, mode);
+
+  const color =
+    node.status === "attacked" || down
+      ? HEX.red
+      : node.status === "defending"
+        ? HEX.green
+        : host
+          ? HEX.green
+          : HEX.ink;
+
   return (
-    <Card title={`Drone ${node.id}`} color={color} status={node.status}>
-      <Stat label="Links" value={String(incident.length)} />
-      <Stat label="Compromised" value={String(jammed)} color={jammed ? HEX.red : undefined} />
+    <Card title={host ? `Node ${node.id}` : `Drone ${node.id}`} color={color} status={node.status}>
+      <Stat label="Source" value={source} color={sourceColor} />
+      {mode === "live" && host && (
+        <Stat
+          label="Heartbeat"
+          value={node.beat_age != null ? `${node.beat_age}s ago` : "—"}
+          color={down ? HEX.red : HEX.green}
+        />
+      )}
+      <Stat label="Role" value={droneRole(node.id, host)} />
+      <Stat label="Links" value={`${live}/${incident.length} live`} />
+      <Stat label="Risk" value={`${Math.round(risk * 100)}%`} color={riskColor(risk)} />
+      {jammed > 0 && (
+        <Stat label="Under attack" value={`${jammed} link${jammed > 1 ? "s" : ""}`} color={HEX.red} />
+      )}
     </Card>
   );
 }
@@ -620,7 +684,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="pointer-events-none absolute bottom-4 left-4 z-20 w-56 rounded-lg border border-line bg-panel/95 p-3 backdrop-blur">
+    <div className="pointer-events-none absolute bottom-4 left-4 z-20 w-60 rounded-lg border border-line bg-panel/95 p-3 backdrop-blur">
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-ink">{title}</span>
         <span
@@ -674,10 +738,12 @@ function HoverTip({
   hover,
   state,
   riskMap,
+  mode,
 }: {
   hover: Hover | null;
   state: StateMessage | null;
   riskMap: Map<string, number>;
+  mode: "mock" | "live";
 }) {
   if (!hover || !state) return null;
 
@@ -725,10 +791,18 @@ function HoverTip({
     const jammed = incident.filter((l) => l.status === "jammed").length;
     const live = incident.filter((l) => l.active).length;
     const risk = riskMap.get(node.id) ?? 0;
-    title = `Drone ${node.id}`;
+    const host = !!node.host;
+    const down = node.status === "down";
+    title = host ? `Node ${node.id}` : `Drone ${node.id}`;
     badge = node.status;
     badgeColor =
-      node.status === "attacked" ? HEX.red : node.status === "defending" ? HEX.green : HEX.dim;
+      node.status === "attacked" || down
+        ? HEX.red
+        : node.status === "defending"
+          ? HEX.green
+          : HEX.dim;
+    const src = nodeSource(node, mode);
+    rows.push({ label: "Source", value: src.text, color: src.color });
     rows.push({ label: "Risk", value: `${Math.round(risk * 100)}%`, color: riskColor(risk) });
     rows.push({ label: "Live traffic", value: `${live}/${incident.length} links` });
     if (jammed > 0) rows.push({ label: "Under attack", value: `${jammed} link${jammed > 1 ? "s" : ""}`, color: HEX.red });
@@ -767,9 +841,10 @@ interface Props {
   selected: Selection;
   onSelect: (sel: Selection) => void;
   isolated: Set<string>;
+  mode: "mock" | "live";
 }
 
-export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
+export function SwarmMap({ state, selected, onSelect, isolated, mode }: Props) {
   // Gate the interactive ReactFlow canvas (and anything that reads window/
   // measures the DOM) behind a client-only mounted flag. The server render and
   // the first client render are therefore identical — just the static HUD frame
@@ -990,8 +1065,8 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
         )}
       </div>
 
-      <DetailCard state={state} selected={selected} />
-      <HoverTip hover={hover} state={state} riskMap={riskMap} />
+      <DetailCard state={state} selected={selected} mode={mode} riskMap={riskMap} />
+      <HoverTip hover={hover} state={state} riskMap={riskMap} mode={mode} />
     </HudFrame>
   );
 }

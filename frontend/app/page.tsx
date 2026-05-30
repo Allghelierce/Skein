@@ -25,7 +25,7 @@ import { analyzeMesh } from "@/lib/mesh";
 import { useSwarm } from "@/lib/ws";
 
 export default function Page() {
-  const { state, send, selected, setSelected } = useSwarm();
+  const { state, send, selected, setSelected, mode } = useSwarm();
 
   const analysis = useMemo(() => analyzeMesh(state), [state]);
   const isolated = useMemo(() => new Set(analysis.isolated), [analysis]);
@@ -53,6 +53,7 @@ export default function Page() {
             selected={selected}
             onSelect={setSelected}
             isolated={isolated}
+            mode={mode}
           />
         </div>
 

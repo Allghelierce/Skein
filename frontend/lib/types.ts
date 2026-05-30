@@ -3,7 +3,7 @@
 // accept `command` messages in exactly this shape. Do not redefine these types
 // elsewhere; import from here.
 
-export type NodeStatus = "healthy" | "attacked" | "defending" | "isolated";
+export type NodeStatus = "healthy" | "attacked" | "defending" | "isolated" | "down";
 export type LinkStatus = "healthy" | "jammed" | "rerouted" | "down";
 export type ThreatLevel = "NOMINAL" | "ELEVATED" | "CRITICAL";
 
@@ -18,6 +18,10 @@ export interface SwarmNode {
   x: number; // 0..1 layout coords
   y: number;
   status: NodeStatus;
+  // host => physically running on another device (e.g. laptop 2), not simulated.
+  host?: boolean;
+  // seconds since this host node's last heartbeat (host nodes only; null if none).
+  beat_age?: number | null;
 }
 
 // Raw CIC flow features the detector scored this tick (keys = FEATURE_COLUMNS).

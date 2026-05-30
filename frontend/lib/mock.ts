@@ -385,6 +385,8 @@ export class MockEngine {
       x: n.x,
       y: n.y,
       status: this.nodeStatus.get(n.id) ?? "healthy",
+      host: false, // MOCK mode: every drone is simulated in-browser
+      beat_age: null,
     }));
     // ScoredLink rides an optional `reasons` field alongside the contract shape;
     // the real backend will add it to the contract soon, the UI reads it either way.
