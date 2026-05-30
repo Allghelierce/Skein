@@ -37,6 +37,14 @@ app.add_middleware(
 simulator = Simulator()
 
 
+from live.wiring import maybe_start_live_capture
+
+
+@app.on_event("startup")
+def _start_live_capture() -> None:
+    app.state.live_capture = maybe_start_live_capture(simulator)
+
+
 @app.get("/")
 def health() -> dict:
     return {
