@@ -140,6 +140,53 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
   );
 }
 
+/* ── Traveling packet ───────────────────────────────────────────────────────
+   A packet rides the link path. `drop` makes it stall ~60% across and die — the
+   visible consequence of a jam: data that pushes toward the wall, piles up, and
+   never arrives. Healthy/rerouted packets just flow clean through. */
+function Packet({
+  path,
+  color,
+  r,
+  dur,
+  begin,
+  drop,
+  opacity = 1,
+}: {
+  path: string;
+  color: string;
+  r: number;
+  dur: string;
+  begin?: string;
+  drop?: boolean;
+  opacity?: number;
+}) {
+  const style = { filter: `drop-shadow(0 0 3px ${color})` } as const;
+  if (drop) {
+    return (
+      <circle r={r} fill={color} style={style}>
+        <animateMotion
+          dur={dur}
+          begin={begin}
+          repeatCount="indefinite"
+          path={path}
+          calcMode="linear"
+          keyPoints="0;0.6;0.6"
+          keyTimes="0;0.6;1"
+        />
+        {/* swell toward the jam, then snuff out at the wall */}
+        <animate attributeName="opacity" dur={dur} begin={begin} repeatCount="indefinite" values="0;1;1;0;0" keyTimes="0;0.15;0.5;0.62;1" />
+        <animate attributeName="r" dur={dur} begin={begin} repeatCount="indefinite" values={`${r};${r};0;0`} keyTimes="0;0.5;0.62;1" />
+      </circle>
+    );
+  }
+  return (
+    <circle r={r} fill={color} opacity={opacity} style={style}>
+      <animateMotion dur={dur} begin={begin} repeatCount="indefinite" path={path} />
+    </circle>
+  );
+}
+
 /* ── Link with optional traveling packet ────────────────────────────────── */
 interface DataEdgeData extends Record<string, unknown> {
   status: SwarmLink["status"];
@@ -176,12 +223,10 @@ function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEd
   const width = (jammed ? 1.8 : rerouted ? 2.8 : 1.1) + (selected ? 1 : 0);
   const opacity = jammed || rerouted ? 1 : active ? 0.6 : 0.42;
 
-  // always-on traffic: every link carries a visible packet so the swarm reads
-  // "alive" — soft green data on quiet links, red/green during combat.
-  const packetColor = jammed ? HEX.red : rerouted ? HEX.green : "#4fae86";
-  const packetOpacity = jammed || rerouted ? 1 : active ? 0.9 : 0.55;
-  const packetR = jammed ? 2 : rerouted ? 3 : active ? 2.3 : 1.9;
-  const dur = jammed ? "0.8s" : rerouted ? "0.7s" : active ? "1.5s" : "2.4s";
+  // jam blockade marker: a pulsing red knot ~60% along the link where packets
+  // pile up and drop, so the eye sees WHERE traffic is failing.
+  const wallX = sourceX + 0.6 * (targetX - sourceX);
+  const wallY = sourceY + 0.6 * (targetY - sourceY);
 
   // per-link confidence label, shown for every link every tick
   const labelColor = jammed ? HEX.red : rerouted ? HEX.green : HEX.faint;
@@ -202,9 +247,27 @@ function DataEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<DataEd
               : undefined,
         }}
       />
-      <circle r={packetR} fill={packetColor} opacity={packetOpacity} style={{ filter: `drop-shadow(0 0 3px ${packetColor})` }}>
-        <animateMotion dur={dur} repeatCount="indefinite" path={path} />
-      </circle>
+      {jammed ? (
+        <>
+          {/* a queue of packets that push toward the jam, pile up, and drop */}
+          <Packet path={path} color={HEX.red} r={2.4} dur="1.1s" begin="0s" drop />
+          <Packet path={path} color={HEX.red} r={2.4} dur="1.1s" begin="-0.37s" drop />
+          <Packet path={path} color={HEX.red} r={2.4} dur="1.1s" begin="-0.74s" drop />
+          {/* the blockade itself */}
+          <circle cx={wallX} cy={wallY} r={3} fill={HEX.red} style={{ filter: `drop-shadow(0 0 4px ${HEX.red})` }}>
+            <animate attributeName="opacity" dur="0.7s" repeatCount="indefinite" values="0.4;1;0.4" />
+            <animate attributeName="r" dur="0.7s" repeatCount="indefinite" values="2.5;4;2.5" />
+          </circle>
+        </>
+      ) : rerouted ? (
+        <>
+          {/* healing path: bright green data flows fast through the new route */}
+          <Packet path={path} color={HEX.green} r={3} dur="0.7s" begin="0s" />
+          <Packet path={path} color={HEX.green} r={3} dur="0.7s" begin="-0.35s" />
+        </>
+      ) : (
+        <Packet path={path} color="#4fae86" r={active ? 2.3 : 1.9} dur={active ? "1.5s" : "2.4s"} opacity={active ? 0.9 : 0.55} />
+      )}
       <EdgeLabelRenderer>
         <div
           className="mono pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 tabular-nums"
