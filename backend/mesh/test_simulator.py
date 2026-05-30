@@ -1,5 +1,5 @@
 from ml.schema import FEATURE_COLUMNS
-from mesh.simulator import STEALTH, Simulator
+from mesh.simulator import COMPROMISE_DWELL_TICKS, STEALTH, Simulator
 
 
 def _state_keys_ok(state):
@@ -71,13 +71,40 @@ def test_reset_restores_health_and_emits_recovery():
     assert any(e["kind"] == "recovery" for e in state["events"])
 
 
-def test_hack_quarantines_node_and_reroutes_around_it():
+def test_hack_is_flagged_by_detector_before_quarantine():
     sim = Simulator()
-    # Dense 13-node mesh: hacking one node severs all of ITS incident links
-    # (status "down") and reroutes traffic elsewhere; nobody gets isolated.
-    node_id = "D2"  # high-degree inner node; the swarm easily survives its loss
+    # Phase 1 — intrusion. A hacked node is NOT removed instantly: it stays in
+    # the mesh emitting real CIC PortScan flows that the ML detector flags. This
+    # is the IDS catching the compromise before the swarm contains it.
+    node_id = "D2"
     sim.command("hack", node_id)
     state = sim.tick()
+
+    node = next(n for n in state["nodes"] if n["id"] == node_id)
+    assert node["status"] == "attacked"
+
+    incident = [l for l in state["links"] if node_id in (l["source"], l["target"])]
+    assert len(incident) >= 4
+    # Its links are flagged as a live attack (PortScan), NOT yet severed.
+    assert all(l["status"] == "jammed" for l in incident)
+    assert all(l["prediction"]["label"] == "PortScan" for l in incident)
+    # The detector — not an oracle — is what surfaces the compromise.
+    assert state["threat_level"] != "NOMINAL"
+    assert any(
+        e["kind"] == "detection" and "PortScan" in e["message"] for e in state["events"]
+    )
+
+
+def test_hack_quarantines_node_and_reroutes_around_it():
+    sim = Simulator()
+    # Dense 13-node mesh: after the intrusion is detected (phase 1), the swarm
+    # auto-quarantines the node (phase 2) — severing all of ITS incident links
+    # (status "down") and rerouting traffic elsewhere; nobody gets isolated.
+    node_id = "D2"  # high-degree inner node; the swarm easily survives its loss
+    sim.command("hack", node_id)
+    # Advance through the detection dwell into containment.
+    for _ in range(COMPROMISE_DWELL_TICKS + 1):
+        state = sim.tick()
 
     node = next(n for n in state["nodes"] if n["id"] == node_id)
     assert node["status"] == "attacked"
@@ -120,7 +147,10 @@ def test_hacking_both_neighbours_isolates_a_drone():
     assert neighbours, "target must have neighbours"
     for nb in neighbours:
         sim.command("hack", nb)
-    state = sim.tick()
+    # Advance through detection into containment — once the neighbours are
+    # quarantined, the surrounded drone is genuinely cut off.
+    for _ in range(COMPROMISE_DWELL_TICKS + 1):
+        state = sim.tick()
 
     node = next(n for n in state["nodes"] if n["id"] == target)
     assert node["status"] == "isolated"

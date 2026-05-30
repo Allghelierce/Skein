@@ -48,6 +48,14 @@ STEALTH = "stealth"
 # attacker sends one per second) while still healing visibly on a real kill.
 HEARTBEAT_TIMEOUT_SECONDS = 4.0
 
+# A hacked node is not removed instantly. First it stays in the mesh as a live
+# intrusion: its links carry real CIC PortScan (recon/scan) flows that the ML
+# detector genuinely flags — that's the IDS catching a compromise the operator
+# couldn't otherwise see. Only after this many ticks of detected intrusion does
+# the swarm auto-quarantine the node and heal around it. Detect first, contain
+# second, the way a real ML-driven response works.
+COMPROMISE_DWELL_TICKS = 3
+
 # Where external host nodes land when they join. Laptop 2 ("ATK") sits at the
 # bottom-right edge, linked to two real drones so its loss is always survivable
 # (the swarm heals around it rather than partitioning).
@@ -139,7 +147,12 @@ class Simulator:
         # deterministic (no real sleeping). Defaults to wall-clock monotonic.
         self._clock = clock or time.monotonic
         self._events: deque[dict] = deque(maxlen=_EVENT_BUFFER)
-        self.hacked_nodes: set[str] = set()
+        self.hacked_nodes: set[str] = set()  # quarantined (removed) compromised nodes
+        # Nodes under active intrusion but not yet quarantined: node_id -> ticks
+        # remaining before auto-containment. Their links emit real PortScan flows
+        # the detector flags; tick() promotes them into hacked_nodes when the
+        # dwell elapses. See COMPROMISE_DWELL_TICKS.
+        self.compromised: dict[str, int] = {}
         # Externally-hosted nodes (e.g. laptop 2 as "ATK") and their liveness.
         self.host_nodes: set[str] = set()
         self.heartbeats: dict[str, float] = {}  # node_id -> last-seen clock time
@@ -260,14 +273,22 @@ class Simulator:
                 link.attack_type = STEALTH  # low-and-slow, benign-like attack flow
                 self._emit("info", f"Operator launched STEALTH attack on link {link.id}")
         elif action == "hack":
-            if target and target in self.graph._nodes_by_id:
-                self.hacked_nodes.add(target)
-                # Quarantine response: the drone is treated as compromised and
-                # removed from the mesh; its links are severed and traffic routes
-                # around it (handled in tick). No attack sampling on a dead node.
+            if (
+                target
+                and target in self.graph._nodes_by_id
+                and target not in self.hacked_nodes
+                and target not in self.compromised
+            ):
+                # Phase 1 — intrusion. The compromised node is NOT removed yet; it
+                # stays in the mesh emitting real CIC PortScan (recon/scan) flows
+                # on its links, which the ML detector flags genuinely. tick()
+                # auto-quarantines it once the intrusion has been detected for
+                # COMPROMISE_DWELL_TICKS (phase 2).
+                self.compromised[target] = COMPROMISE_DWELL_TICKS
+                attack = ACTION_TO_ATTACK["hack"]  # PortScan — scan/recon from the host
                 for link in self.graph.links_incident_to(target):
-                    link.attack_type = None
-                self._emit("detection", f"Drone {target} COMPROMISED — quarantining")
+                    link.attack_type = attack
+                self._emit("detection", f"Drone {target} COMPROMISED — intrusion flows on its links")
         elif action == "reset":
             for link in self.graph.links:
                 link.attack_type = None
@@ -276,6 +297,7 @@ class Simulator:
             for node in self.graph.nodes:
                 node.status = "healthy"
             self.hacked_nodes.clear()
+            self.compromised.clear()
             self._announced_detections.clear()
             self._announced_reroutes.clear()
             self._announced_isolated.clear()
@@ -318,6 +340,21 @@ class Simulator:
     def tick(self) -> dict:
         self.tick_count += 1
         jammed_count = 0
+
+        # Phase 2 of a hack — containment. Once a compromised node's intrusion has
+        # been live (its PortScan links flagged) for COMPROMISE_DWELL_TICKS, move
+        # it into the quarantined set so its links sever and the swarm heals
+        # around it. Detection (phase 1) happened over the preceding ticks.
+        for node_id in list(self.compromised):
+            self.compromised[node_id] -= 1
+            if self.compromised[node_id] <= 0:
+                del self.compromised[node_id]
+                self.hacked_nodes.add(node_id)
+                # Stop sampling attack flows; these links are about to be severed.
+                for link in self.graph.links_incident_to(node_id):
+                    link.attack_type = None
+                self._emit("detection", f"Drone {node_id} quarantined — isolating compromised node")
+
         hacked = self.hacked_nodes
         # Host nodes whose heartbeats lapsed (laptop killed/offline) are treated
         # as removed from the mesh, exactly like a quarantined drone.
@@ -371,6 +408,12 @@ class Simulator:
         # 2a. Reroute around each jammed link.
         for link in self.graph.links:
             if link.status != "jammed":
+                continue
+            # A compromised node's own links are flagged (detected) but not
+            # individually rerouted — the node is about to be quarantined and
+            # healed around as a unit (phase 2). Skipping them keeps the
+            # detection window showing clean ML flags, not "partitioned" noise.
+            if link.source in self.compromised or link.target in self.compromised:
                 continue
             live_reroute_keys.add(link.id)
             # Route AROUND every removed (hacked/dark) node and every dead link
@@ -444,7 +487,7 @@ class Simulator:
         main = comps[0] if comps else set()
         isolated = {
             n.id for n in self.graph.nodes
-            if n.id not in removed and n.id not in main
+            if n.id not in removed and n.id not in self.compromised and n.id not in main
         }
         for node_id in isolated:
             if node_id not in self._announced_isolated:
@@ -466,7 +509,7 @@ class Simulator:
 
         # 3. Node statuses: hacked(attacked) > dark(down) > isolated > defending.
         for node in self.graph.nodes:
-            if node.id in hacked:
+            if node.id in hacked or node.id in self.compromised:
                 node.status = "attacked"
             elif node.id in down:
                 node.status = "down"
