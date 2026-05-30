@@ -560,7 +560,7 @@ function MapField() {
         </defs>
       </svg>
 
-      <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.85 }}>
+      <div className="terrain-scroll absolute inset-x-0 top-0" style={{ height: "200%", opacity: 0.5 }}>
         <TerrainTile />
         <TerrainTile />
       </div>
@@ -580,7 +580,7 @@ function MapField() {
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(125% 125% at 50% 47%, transparent 46%, rgba(3,7,11,0.82) 100%)",
+            "radial-gradient(120% 120% at 50% 47%, transparent 36%, rgba(2,4,7,0.94) 100%)",
         }}
       />
     </div>
