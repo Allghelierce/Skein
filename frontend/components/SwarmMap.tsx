@@ -330,6 +330,101 @@ function MapField() {
   );
 }
 
+/* ── Hover tooltip ──────────────────────────────────────────────────────────
+   Live readout that follows the cursor: a drone shows status / risk / current
+   throughput; a link shows the detector's verdict, confidence, and the raw CIC
+   numbers it scored this tick. Everything is read straight from live state. */
+type Hover = { kind: "node" | "link"; id: string; x: number; y: number };
+
+function fmt(n: number): string {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return n >= 100 ? Math.round(n).toString() : n.toFixed(1);
+}
+
+function HoverTip({
+  hover,
+  state,
+  risk,
+  isolated,
+}: {
+  hover: Hover | null;
+  state: StateMessage | null;
+  risk: Map<string, number>;
+  isolated: Set<string>;
+}) {
+  if (!hover || !state) return null;
+  // flip to the left when near the right edge so the tip never clips off-screen
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
+  const flip = hover.x > vw - 230;
+  const style: React.CSSProperties = {
+    left: flip ? hover.x - 14 : hover.x + 14,
+    top: hover.y + 14,
+    transform: flip ? "translateX(-100%)" : undefined,
+  };
+
+  let title: string;
+  let accent: string;
+  let rows: { label: string; value: string; color?: string }[];
+
+  if (hover.kind === "node") {
+    const node = state.nodes.find((n) => n.id === hover.id);
+    if (!node) return null;
+    const incident = state.links.filter((l) => l.source === node.id || l.target === node.id);
+    const throughput = incident
+      .filter((l) => l.active && l.status !== "jammed")
+      .reduce((s, l) => s + (l.features.flow_packets_s ?? 0), 0);
+    const jammed = incident.filter((l) => l.status === "jammed").length;
+    const r = Math.round((risk.get(node.id) ?? 0) * 100);
+    const off = isolated.has(node.id) && node.status !== "attacked";
+    const statusLabel = off ? "isolated" : node.status;
+    accent =
+      node.status === "attacked" ? HEX.red : node.status === "defending" ? HEX.green : off ? HEX.faint : HEX.ink;
+    title = `Drone ${node.id}`;
+    rows = [
+      { label: "Status", value: statusLabel, color: accent },
+      { label: "Risk", value: `${r}%`, color: r >= 65 ? HEX.red : r >= 35 ? HEX.amber : HEX.dim },
+      { label: "Throughput", value: `${fmt(throughput)} pkt/s` },
+      { label: "Links", value: `${incident.length}${jammed ? ` · ${jammed} jammed` : ""}`, color: jammed ? HEX.red : undefined },
+    ];
+  } else {
+    const link = state.links.find((l) => l.id === hover.id);
+    if (!link) return null;
+    const attack = !!link.prediction.attack_type;
+    accent = link.status === "jammed" ? HEX.red : link.status === "rerouted" ? HEX.green : HEX.ink;
+    title = `Link ${link.id}`;
+    rows = [
+      { label: "Verdict", value: link.prediction.label, color: attack ? HEX.red : HEX.green },
+      { label: "Confidence", value: `${Math.round(link.prediction.confidence * 100)}%` },
+      { label: "Flow pkts/s", value: fmt(link.features.flow_packets_s ?? 0) },
+      { label: "Flow bytes/s", value: fmt(link.features.flow_bytes_s ?? 0) },
+      { label: "Fwd packets", value: fmt(link.features.total_fwd_packets ?? 0) },
+    ];
+  }
+
+  return (
+    <div
+      className="pointer-events-none fixed z-50 w-[190px] rounded-md border bg-panel/95 p-2.5 backdrop-blur"
+      style={{ ...style, borderColor: `${accent}55` }}
+    >
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-xs font-semibold text-ink">{title}</span>
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} />
+      </div>
+      <div className="space-y-1">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between">
+            <span className="label-xs">{row.label}</span>
+            <span className="mono text-[0.68rem] capitalize tabular-nums" style={{ color: row.color ?? HEX.ink }}>
+              {row.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── Selection detail card ──────────────────────────────────────────────── */
 function DetailCard({ state, selected }: { state: StateMessage | null; selected: Selection }) {
   if (!selected || !state) return null;
@@ -470,6 +565,18 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
   );
   const onPaneClick = useCallback(() => onSelect(null), [onSelect]);
 
+  // Hover tooltips: a live readout that tracks the cursor over drones and links.
+  const [hover, setHover] = useState<Hover | null>(null);
+  const onNodeHover = useCallback<NodeMouseHandler>(
+    (e, node) => setHover({ kind: "node", id: node.id, x: e.clientX, y: e.clientY }),
+    [],
+  );
+  const onEdgeHover = useCallback<EdgeMouseHandler<DataEdge>>(
+    (e, edge) => setHover({ kind: "link", id: edge.id, x: e.clientX, y: e.clientY }),
+    [],
+  );
+  const clearHover = useCallback(() => setHover(null), []);
+
   const hostiles = state?.links.filter((l) => l.status === "jammed").length ?? 0;
 
   return (
@@ -494,6 +601,12 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           onNodeClick={onNodeClick}
           onEdgeClick={onEdgeClick}
           onPaneClick={onPaneClick}
+          onNodeMouseEnter={onNodeHover}
+          onNodeMouseMove={onNodeHover}
+          onNodeMouseLeave={clearHover}
+          onEdgeMouseEnter={onEdgeHover}
+          onEdgeMouseMove={onEdgeHover}
+          onEdgeMouseLeave={clearHover}
           fitView
           fitViewOptions={{ padding: 0.16 }}
           nodesDraggable
@@ -508,6 +621,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
       </div>
 
       <DetailCard state={state} selected={selected} />
+      <HoverTip hover={hover} state={state} risk={risk.byNode} isolated={isolated} />
     </HudFrame>
   );
 }
