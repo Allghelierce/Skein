@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Skein — bird variations</title>
+<style>
+  :root { --red:#e23b3b; --bg:#0e0f12; --card:#16181d; --muted:#8a92a0; --line:#262a31; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+         background:var(--bg); color:#e8ebf0; padding:40px; }
+  h1 { font-size:22px; font-weight:700; letter-spacing:-0.02em; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:14px; margin:0 0 28px; }
+  .controls { margin:0 0 26px; display:flex; gap:18px; align-items:center; flex-wrap:wrap;
+              font-size:13px; color:var(--muted); }
+  .controls label { display:flex; gap:7px; align-items:center; cursor:pointer; }
+  input[type="color"] { width:26px; height:26px; border:none; background:none; padding:0; cursor:pointer; }
+  input[type="range"] { width:120px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px;
+          overflow:hidden; display:flex; flex-direction:column; }
+  .card.ref { border-color:rgba(226,59,59,0.5); }
+  .stage { aspect-ratio:4/3; display:flex; align-items:center; justify-content:center;
+           padding:26px; background:#0a0b0d; }
+  .stage svg { width:100%; height:100%; max-width:270px; }
+  .label { padding:12px 16px; border-top:1px solid var(--line); font-size:13px; color:var(--muted);
+           display:flex; justify-content:space-between; align-items:center; }
+  .label b { color:#e8ebf0; font-weight:600; }
+  .pill { font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--red);
+          border:1px solid rgba(226,59,59,0.4); border-radius:999px; padding:2px 8px; }
+</style>
+</head>
+<body>
+  <h1>Skein — swarm marks, more bird-like</h1>
+  <p class="sub">Same formation &amp; red-casualty treatment as your reference. All simple silhouettes, just more obviously a bird.</p>
+
+  <div class="controls">
+    <label>attack color <input id="redPick" type="color" value="#e23b3b" /></label>
+    <label>tilt <input id="tilt" type="range" min="0" max="90" value="35" /> <span id="tiltVal">35°</span></label>
+    <label>drop <input id="drop" type="range" min="0" max="40" value="14" /> <span id="dropVal">14</span></label>
+    <label><input id="trail" type="checkbox" checked /> ghost trail</label>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+<script>
+// each style draws inside a 0..100 (x) by 0..40 (y) box, centered ~ (50,20)
+const STYLES = [
+  { key:"ref", name:"reference (current)", note:"the one you saved", ref:true,
+    paths: f => `<path fill="${f}" d="M4 24 C16 8 30 10 40 21 C44 25 46 25 50 19 C54 25 56 25 60 21 C70 10 84 8 96 24 C84 14 72 16 62 24 C56 30 54 30 50 24 C46 30 44 30 38 24 C28 16 16 14 4 24 Z"/>` },
+
+  { key:"twinarc", name:"twin-arc gull", note:"iconic two-hump 'm'",
+    paths: f => `<path fill="${f}" d="M6 26 Q28 6 50 24 Q72 6 94 26 Q72 14 50 28 Q28 14 6 26 Z"/>` },
+
+  { key:"soaring", name:"soaring hawk", note:"broad wings + head bump",
+    paths: f => `<path fill="${f}" d="M4 22 C18 18 28 22 40 20 C45 19 47 14 50 14 C53 14 55 19 60 20 C72 22 82 18 96 22 C82 26 72 24 60 26 C55 27 53 30 50 30 C47 30 45 27 40 26 C28 24 18 26 4 22 Z"/>` },
+
+  { key:"body", name:"swift (body + wings)", note:"reads as a whole bird",
+    paths: f => `
+      <path fill="${f}" d="M50 19 C40 8 22 7 6 13 C24 15 38 18 50 23 Z"/>
+      <path fill="${f}" d="M50 19 C60 8 78 7 94 13 C76 15 62 18 50 23 Z"/>
+      <path fill="${f}" d="M50 15 C53 15 54 22 50 31 C46 22 47 15 50 15 Z"/>` },
+
+  { key:"swallow", name:"swallow (streamer tail)", note:"long elegant forked tail",
+    paths: f => `
+      <path fill="${f}" d="M50 17 C37 7 19 9 5 19 C22 16 40 19 50 22 Z"/>
+      <path fill="${f}" d="M50 17 C63 7 81 9 95 19 C78 16 60 19 50 22 Z"/>
+      <path fill="${f}" d="M50 16 C52 16 52 21 50 26 C48 21 48 16 50 16 Z"/>
+      <path fill="${f}" d="M49 22 C47 29 43 34 36 40 C41 33 46 28 49 24 Z"/>
+      <path fill="${f}" d="M51 22 C53 29 57 34 64 40 C59 33 54 28 51 24 Z"/>` },
+
+  { key:"chevron", name:"chevron", note:"most minimal / angular",
+    paths: f => `<path fill="${f}" d="M8 27 L50 12 L92 27 L88 30 L50 18 L12 30 Z"/>` },
+];
+
+const FORMATION = [
+  { x:150, y:70,  s:1.05 },
+  { x:70,  y:130, s:1.0  },
+  { x:235, y:135, s:1.0  },
+  { x:150, y:185, s:1.0  },
+];
+
+function bird(p, style, opts={}) {
+  const { x, y, s } = p, w = 100*s, h = 40*s, cx = w/2, cy = h/2;
+  const fill = opts.fill, tilt = opts.tilt||0, drop = opts.drop||0;
+  const op = opts.opacity != null ? opts.opacity : 1;
+  const t = `translate(${x-cx} ${y-cy+drop}) rotate(${tilt} ${cx} ${cy})`;
+  return `<g transform="${t}" opacity="${op}"><g transform="scale(${s})">${style.paths(fill)}</g></g>`;
+}
+
+function swarm(style, { attackIndex=2, fill="#f4f6fa", red="#e23b3b", tilt=35, drop=14, trail=true }={}) {
+  let parts = "";
+  FORMATION.forEach((p,i) => {
+    if (i === attackIndex) {
+      if (trail) parts += bird(p, style, { fill, opacity:0.12 });
+      parts += bird(p, style, { fill:red, tilt, drop });
+    } else parts += bird(p, style, { fill });
+  });
+  return `<svg viewBox="0 0 300 230" xmlns="http://www.w3.org/2000/svg">${parts}</svg>`;
+}
+
+function render() {
+  const red = redPick.value, t = +tilt.value, d = +drop.value, tr = trail.checked;
+  tiltVal.textContent = t + "°"; dropVal.textContent = d;
+  grid.innerHTML = "";
+  STYLES.forEach(style => {
+    const svg = swarm(style, { red, tilt:t, drop:d, trail:tr });
+    const card = document.createElement("div");
+    card.className = "card" + (style.ref ? " ref" : "");
+    card.innerHTML = `<div class="stage">${svg}</div>
+      <div class="label"><span><b>${style.name}</b> — ${style.note}</span>${style.ref?'<span class="pill">saved</span>':''}</div>`;
+    grid.appendChild(card);
+  });
+}
+["redPick","tilt","drop","trail"].forEach(id =>
+  document.getElementById(id).addEventListener("input", render));
+render();
+</script>
+</body>
+</html>

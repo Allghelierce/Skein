@@ -1,0 +1,13 @@
+<svg viewBox="0 0 300 230" xmlns="http://www.w3.org/2000/svg" width="300" height="230">
+  <!-- Skein mark: gull swarm, one drone struck red & breaking formation -->
+  <!-- white swarm -->
+  <g fill="#f4f6fa">
+    <g transform="translate(97.5 49)"><path transform="scale(1.05)" d="M4 24 C16 8 30 10 40 21 C44 25 46 25 50 19 C54 25 56 25 60 21 C70 10 84 8 96 24 C84 14 72 16 62 24 C56 30 54 30 50 24 C46 30 44 30 38 24 C28 16 16 14 4 24 Z"/></g>
+    <g transform="translate(20 110)"><path d="M4 24 C16 8 30 10 40 21 C44 25 46 25 50 19 C54 25 56 25 60 21 C70 10 84 8 96 24 C84 14 72 16 62 24 C56 30 54 30 50 24 C46 30 44 30 38 24 C28 16 16 14 4 24 Z"/></g>
+    <g transform="translate(100 165)"><path d="M4 24 C16 8 30 10 40 21 C44 25 46 25 50 19 C54 25 56 25 60 21 C70 10 84 8 96 24 C84 14 72 16 62 24 C56 30 54 30 50 24 C46 30 44 30 38 24 C28 16 16 14 4 24 Z"/></g>
+  </g>
+  <!-- ghost: where the struck drone should have been -->
+  <g transform="translate(185 115)" opacity="0.12" fill="#f4f6fa"><path d="M4 24 C16 8 30 10 40 21 C44 25 46 25 50 19 C54 25 56 25 60 21 C70 10 84 8 96 24 C84 14 72 16 62 24 C56 30 54 30 50 24 C46 30 44 30 38 24 C28 16 16 14 4 24 Z"/></g>
+  <!-- struck drone: red, tilted, dropping out of formation -->
+  <g transform="translate(185 129) rotate(35 50 20)" fill="#e23b3b"><path d="M4 24 C16 8 30 10 40 21 C44 25 46 25 50 19 C54 25 56 25 60 21 C70 10 84 8 96 24 C84 14 72 16 62 24 C56 30 54 30 50 24 C46 30 44 30 38 24 C28 16 16 14 4 24 Z"/></g>
+</svg>

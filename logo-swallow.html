@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Skein — swallow mesh logo</title>
+<style>
+  :root { --bg:#0e0f12; --muted:#8a92a0; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center;
+         justify-content:center; gap:28px; background:var(--bg); color:#e8ebf0;
+         font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif; padding:40px; }
+  #stage { width:440px; height:auto; background:#0a0b0d; border-radius:16px; padding:34px; }
+  .controls { display:flex; gap:18px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--muted); }
+  .controls label { display:flex; gap:7px; align-items:center; cursor:pointer; }
+  input[type="color"]{ width:26px; height:26px; border:none; background:none; padding:0; cursor:pointer; }
+  input[type="range"]{ width:120px; }
+</style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div class="controls">
+    <label>mesh color <input id="mesh" type="color" value="#5a626f" /></label>
+    <label>attack color <input id="redPick" type="color" value="#ff0a3c" /></label>
+    <label>tilt <input id="tilt" type="range" min="0" max="90" value="35" /> <span id="tiltVal">35°</span></label>
+    <label>drop <input id="drop" type="range" min="0" max="45" value="20" /> <span id="dropVal">20</span></label>
+    <label><input id="trail" type="checkbox" /> ghost trail</label>
+  </div>
+
+<script>
+const SWALLOW = f => `
+  <path fill="${f}" d="M50 17 C37 7 19 9 5 19 C22 16 40 19 50 22 Z"/>
+  <path fill="${f}" d="M50 17 C63 7 81 9 95 19 C78 16 60 19 50 22 Z"/>
+  <path fill="${f}" d="M50 16 C52 16 52 21 50 26 C48 21 48 16 50 16 Z"/>
+  <path fill="${f}" d="M49 22 C47 29 43 34 36 40 C41 33 46 28 49 24 Z"/>
+  <path fill="${f}" d="M51 22 C53 29 57 34 64 40 C59 33 54 28 51 24 Z"/>`;
+
+const FORMATION = [
+  { x:150, y:70,  s:1.05 }, // top
+  { x:70,  y:130, s:1.0  }, // left
+  { x:235, y:135, s:1.0  }, // right (struck)
+];
+const ATTACK = 2;
+
+function bird(p, opts={}) {
+  const { x,y,s } = p, w=100*s, h=40*s, cx=w/2, cy=h/2;
+  const fill=opts.fill, tilt=opts.tilt||0, drop=opts.drop||0;
+  const op = opts.opacity!=null?opts.opacity:1;
+  const filt = opts.filter ? ` filter="${opts.filter}"` : "";
+  const t = `translate(${x-cx} ${y-cy+drop}) rotate(${tilt} ${cx} ${cy})`;
+  return `<g transform="${t}" opacity="${op}"${filt}><g transform="scale(${s})">${SWALLOW(fill)}</g></g>`;
+}
+
+function render() {
+  const meshC=mesh.value, red=redPick.value, t=+tilt.value, d=+drop.value, tr=trail.checked;
+  tiltVal.textContent=t+"°"; dropVal.textContent=d;
+
+  // node centers (struck node drops by d)
+  const c = FORMATION.map((p,i)=>({ x:p.x, y:p.y + (i===ATTACK?d:0) }));
+  const lines = [[0,1],[1,2],[2,0]].map(([a,b])=>
+    `<line x1="${c[a].x}" y1="${c[a].y}" x2="${c[b].x}" y2="${c[b].y}"/>`).join("");
+
+  let birds="";
+  FORMATION.forEach((p,i)=>{
+    if(i===ATTACK){
+      if(tr) birds+=bird(p,{fill:"#f4f6fa",opacity:0.12});
+      birds+=bird(p,{fill:red,tilt:t,drop:d,filter:"url(#glow)"});
+    } else birds+=bird(p,{fill:"#f4f6fa"});
+  });
+
+  stage.innerHTML = `<svg viewBox="0 0 300 210" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
+    <defs>
+      <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="5" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <g stroke="${meshC}" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.85">${lines}</g>
+    ${birds}
+  </svg>`;
+}
+["mesh","redPick","tilt","drop","trail"].forEach(id=>
+  document.getElementById(id).addEventListener("input", render));
+render();
+</script>
+</body>
+</html>
