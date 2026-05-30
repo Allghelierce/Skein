@@ -27,6 +27,7 @@ import { motion } from "framer-motion";
 import type { StateMessage, SwarmLink, SwarmNode } from "@/lib/types";
 import { HEX, linkColor, nodeColor, riskGlow } from "@/lib/palette";
 import { computeRisk } from "@/lib/risk";
+import { audio } from "@/lib/audio";
 import { HudFrame } from "@/components/Hud";
 import type { Selection } from "@/lib/ws";
 
@@ -703,6 +704,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
     prevAttacks.current = current;
     if (fresh.length === 0) return;
 
+    audio.detection(); // a fresh contact just landed
     const added = fresh.map((p) => ({ key: pulseSeq.current++, x: p.x, y: p.y }));
     setPulses((prev) => [...prev, ...added]);
     const keys = new Set(added.map((p) => p.key));
@@ -712,6 +714,23 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
     );
     return () => window.clearTimeout(timer);
   }, [state, flowPos]);
+
+  // Audio cue when the cut-off (isolated) set grows — a drone just went dark.
+  const prevIsolated = useRef(0);
+  useEffect(() => {
+    if (isolated.size > prevIsolated.current) audio.isolation();
+    prevIsolated.current = isolated.size;
+  }, [isolated]);
+
+  // Mute toggle (starts muted; clicking it is the gesture that unlocks audio).
+  const [muted, setMuted] = useState(true);
+  const toggleMute = useCallback(() => {
+    setMuted((m) => {
+      const next = !m;
+      audio.setMuted(next);
+      return next;
+    });
+  }, []);
 
   const onNodeClick = useCallback<NodeMouseHandler>(
     (_e, node) => onSelect({ kind: "node", id: node.id }),
@@ -740,11 +759,23 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
   return (
     <HudFrame className="relative min-h-0 flex-1 overflow-hidden">
       <div className="pointer-events-none absolute left-4 top-3 z-20 panel-title">Swarm Map</div>
-      <div className="pointer-events-none absolute right-4 top-3 z-20 flex items-center gap-2 text-[0.68rem]">
-        <span className="h-1.5 w-1.5 rounded-full" style={{ background: hostiles ? HEX.red : HEX.green }} />
-        <span style={{ color: hostiles ? HEX.red : HEX.dim }}>
-          {hostiles ? `${hostiles} contact${hostiles > 1 ? "s" : ""}` : "All nominal"}
-        </span>
+      <div className="absolute right-4 top-3 z-20 flex items-center gap-3 text-[0.68rem]">
+        <button
+          type="button"
+          onClick={toggleMute}
+          aria-label={muted ? "Unmute audio cues" : "Mute audio cues"}
+          title={muted ? "Audio cues off — click to enable" : "Audio cues on"}
+          className="pointer-events-auto grid h-5 w-5 place-items-center rounded text-[0.7rem] leading-none transition-colors"
+          style={{ color: muted ? HEX.faint : HEX.green, border: `1px solid ${muted ? HEX.line : `${HEX.green}55`}` }}
+        >
+          {muted ? "🔇" : "🔊"}
+        </button>
+        <div className="pointer-events-none flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: hostiles ? HEX.red : HEX.green }} />
+          <span style={{ color: hostiles ? HEX.red : HEX.dim }}>
+            {hostiles ? `${hostiles} contact${hostiles > 1 ? "s" : ""}` : "All nominal"}
+          </span>
+        </div>
       </div>
 
       <MapField />
