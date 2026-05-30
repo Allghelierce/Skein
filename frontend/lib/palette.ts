@@ -7,12 +7,25 @@ import type { LinkStatus, NodeStatus, ThreatLevel } from "./types";
 export const HEX = {
   green: "#2ee27a",
   red: "#ff3b5c",
+  amber: "#f5a623", // rising risk — danger before it lands
   node: "#34343c", // neutral healthy unit
   ink: "#ededf0",
   dim: "#8a8a93",
   faint: "#55555e",
   line: "#1e1e22",
 } as const;
+
+// Risk glow ramp: calm below ~0.35, amber as traffic trends attack-like, red as
+// it nears a real hit. Returns null when there's nothing worth glowing about, so
+// a healthy swarm stays neutral (restraint: color only where it means something).
+export function riskGlow(risk: number): { color: string; alpha: number } | null {
+  if (risk < 0.35) return null;
+  // 0.35..0.7 amber → red as risk climbs
+  const t = Math.min(1, (risk - 0.35) / 0.45);
+  const color = t < 0.5 ? HEX.amber : HEX.red;
+  const alpha = 0.25 + 0.5 * t; // 0.25..0.75
+  return { color, alpha };
+}
 
 // Healthy drones stay neutral (white-ish); only state changes bring color in.
 export function nodeColor(status: NodeStatus): string {

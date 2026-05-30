@@ -22,7 +22,8 @@ import {
 import "@xyflow/react/dist/style.css";
 import { motion } from "framer-motion";
 import type { StateMessage, SwarmLink, SwarmNode } from "@/lib/types";
-import { HEX, linkColor, nodeColor } from "@/lib/palette";
+import { HEX, linkColor, nodeColor, riskGlow } from "@/lib/palette";
+import { computeRisk } from "@/lib/risk";
 import { HudFrame } from "@/components/Hud";
 import type { Selection } from "@/lib/ws";
 
@@ -61,6 +62,8 @@ interface DroneData extends Record<string, unknown> {
   status: SwarmNode["status"];
   selected: boolean;
   isolated: boolean;
+  risk: number; // 0..1 how attack-like this drone's traffic has trended
+  predicted: boolean; // flagged as the likely next target
 }
 type DroneNode = Node<DroneData, "drone">;
 
@@ -71,11 +74,36 @@ function DroneNode({ data }: NodeProps<DroneNode>) {
   const color = offline ? HEX.faint : nodeColor(data.status);
   const colored = !offline && data.status !== "healthy";
   const ringColor = offline ? HEX.faint : colored ? color : HEX.node;
+  // risk heatmap: a soft halo whose hue/intensity tracks rising danger. Suppressed
+  // once a drone is already attacked (the threat ring takes over) or offline.
+  const glow = offline || threat ? null : riskGlow(data.risk);
 
   return (
     <div className="relative grid place-items-center" style={{ opacity: offline ? 0.7 : 1 }}>
       <Handle type="target" position={Position.Top} style={HANDLE_STYLE} />
       <Handle type="source" position={Position.Bottom} style={HANDLE_STYLE} />
+
+      {glow && (
+        <motion.span
+          className="pointer-events-none absolute rounded-full"
+          initial={false}
+          animate={{ opacity: data.predicted ? [0.7, 1, 0.7] : 1 }}
+          transition={data.predicted ? { duration: 1.6, repeat: Infinity, ease: "easeInOut" } : { duration: 0.4 }}
+          style={{
+            height: 56,
+            width: 56,
+            background: `radial-gradient(circle, ${glow.color}${Math.round(glow.alpha * 255).toString(16).padStart(2, "0")} 0%, transparent 70%)`,
+          }}
+        />
+      )}
+      {data.predicted && !threat && (
+        <span
+          className="pointer-events-none absolute -top-[22px] whitespace-nowrap rounded px-1 text-[0.5rem] font-semibold uppercase tracking-wide"
+          style={{ color: HEX.amber, border: `1px solid ${HEX.amber}66`, background: "#1a1206cc" }}
+        >
+          ◎ next target
+        </span>
+      )}
 
       {threat && (
         <span className="absolute h-11 w-11 rounded-full animate-skein-ring" style={{ border: `1px solid ${color}` }} />
@@ -377,6 +405,8 @@ interface Props {
 }
 
 export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
+  const risk = useMemo(() => computeRisk(state), [state]);
+
   const nodes: DroneNode[] = useMemo(() => {
     return (state?.nodes ?? []).map((n) => ({
       id: n.id,
@@ -387,10 +417,12 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
         status: n.status,
         selected: selected?.kind === "node" && selected.id === n.id,
         isolated: isolated.has(n.id),
+        risk: risk.byNode.get(n.id) ?? 0,
+        predicted: risk.predicted === n.id,
       },
       draggable: false,
     }));
-  }, [state?.nodes, selected, isolated]);
+  }, [state?.nodes, selected, isolated, risk]);
 
   const edges: DataEdge[] = useMemo(() => {
     return (state?.links ?? []).map((l) => ({
