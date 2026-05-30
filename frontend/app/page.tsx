@@ -49,11 +49,7 @@ export default function Page() {
           </div>
         </div>
 
-<<<<<<< HEAD
-        <aside className="scroll-thin flex w-[340px] min-w-[300px] flex-col gap-3 overflow-y-auto">
-=======
         <aside className="scroll-thin flex w-[360px] min-w-[320px] flex-col gap-4 overflow-y-auto">
->>>>>>> model-report-card
           <DetectorPanel state={state} />
           <ReportCard />
           <WhyFlagged state={state} />
