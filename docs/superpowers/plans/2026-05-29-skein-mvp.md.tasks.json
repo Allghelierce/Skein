@@ -4,7 +4,7 @@
     {
       "id": 1,
       "subject": "Task 0: Foundation — repo scaffold + shared contracts",
-      "status": "pending",
+      "status": "completed",
       "description": "Create repo skeleton + 3 shared contracts (schema.py, types.ts, cic_sample.csv stub) so A/B/C parallelize. See plan Task 0 + Shared Contracts.\n\n```json:metadata\n{\"files\": [\"backend/ml/schema.py\", \"frontend/lib/types.ts\", \"backend/requirements.txt\", \"backend/data/sample/cic_sample.csv\", \".gitignore\"], \"verifyCommand\": \"cd backend && python -c \\\"import ml.schema as s; print(len(s.FEATURE_COLUMNS), s.ALL_LABELS)\\\"\", \"acceptanceCriteria\": [\"schema.py exposes 10 FEATURE_COLUMNS + ALL_LABELS + ACTION_TO_ATTACK\", \"types.ts matches Contract 2\", \"cic_sample.csv stub correct\", \"requirements.txt pins 8 deps\"]}\n```"
     },
     {
