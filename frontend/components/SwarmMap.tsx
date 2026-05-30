@@ -896,7 +896,7 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
           <SpeakerIcon on={audioOn} />
         </button>
         <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: hostiles ? HEX.red : HEX.green }} />
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: hostiles ? HEX.red : HEX.ink }} />
           <span style={{ color: hostiles ? HEX.red : HEX.dim }}>
             {hostiles ? `${hostiles} contact${hostiles > 1 ? "s" : ""}` : "All nominal"}
           </span>

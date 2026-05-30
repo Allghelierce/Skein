@@ -81,8 +81,8 @@ function Mark() {
   // minimal angular swarm glyph
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
-      <path d="M11 2 L19 7 V15 L11 20 L3 15 V7 Z" stroke={HEX.green} strokeWidth="1.3" />
-      <circle cx="11" cy="11" r="2.2" fill={HEX.green} />
+      <path d="M11 2 L19 7 V15 L11 20 L3 15 V7 Z" stroke={HEX.dim} strokeWidth="1.3" />
+      <circle cx="11" cy="11" r="2.2" fill={HEX.ink} />
     </svg>
   );
 }
