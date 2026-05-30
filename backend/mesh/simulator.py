@@ -186,6 +186,7 @@ class Simulator:
             feats = self._sample_features(link)
             pred = self.detector.predict(feats)
             link.prediction = pred
+            link.features = feats  # raw CIC values scored this tick (for the scope panel)
             if pred["label"] != BENIGN:
                 link.status = "jammed"
                 link.active = False
@@ -271,6 +272,7 @@ class Simulator:
                     "status": l.status,
                     "active": l.active,
                     "prediction": l.prediction,
+                    "features": getattr(l, "features", {}),
                 }
                 for l in self.graph.links
             ],

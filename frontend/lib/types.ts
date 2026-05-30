@@ -20,6 +20,10 @@ export interface SwarmNode {
   status: NodeStatus;
 }
 
+// Raw CIC flow features the detector scored this tick (keys = FEATURE_COLUMNS).
+// Used by the raw-data scope panel to show real numbers -> prediction.
+export type LinkFeatures = Record<string, number>;
+
 export interface SwarmLink {
   id: string; // "D1-D2"
   source: string;
@@ -27,6 +31,7 @@ export interface SwarmLink {
   status: LinkStatus;
   active: boolean; // currently carrying traffic
   prediction: Prediction;
+  features: LinkFeatures; // raw CIC feature values scored this tick
 }
 
 export interface SwarmEvent {

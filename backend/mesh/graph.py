@@ -65,6 +65,8 @@ class Link:
     prediction: dict = field(
         default_factory=lambda: {"label": "BENIGN", "attack_type": None, "confidence": 1.0}
     )
+    # Raw CIC feature values the detector scored this tick (keys = FEATURE_COLUMNS).
+    features: dict = field(default_factory=dict)
 
     def endpoints(self) -> tuple[str, str]:
         return self.source, self.target
