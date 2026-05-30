@@ -1,9 +1,11 @@
 // frontend/app/page.tsx
-// Skein command center.
-//   TOP    StatusBar + MissionStatus (comms / survival)
-//   CENTER SwarmMap · LiveStatsBar · RawDataScope (the ML, working, visible)
-//   RIGHT  DetectorPanel · ReportCard · WhyFlagged · EventFeed
-//   BOTTOM AttackControls (judge levers)
+// Skein command center — "Gotham" layout.
+//   TOP     StatusBar + MissionStatus ribbons
+//   STAGE   SwarmMap full-bleed, edge to edge (the centerpiece IS the background)
+//   FLOAT   glass intel rails over the map:
+//             left  → Detector · Why Flagged · Report Card
+//             right → Raw Data Scope · Activity feed
+//           bottom dock → Live telemetry + Attack controls (judge levers)
 "use client";
 
 import { useMemo } from "react";
@@ -28,36 +30,46 @@ export default function Page() {
   const isolated = useMemo(() => new Set(analysis.isolated), [analysis]);
 
   return (
-    <div className="relative z-10 flex h-screen flex-col">
+    <div className="gotham-layout relative z-10 flex h-screen flex-col">
       <BootScreen />
       <StatusBar state={state} connected={connected} mode={mode} />
       <MissionStatus analysis={analysis} />
 
-      <main className="flex min-h-0 flex-1 gap-3 p-3">
-        <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="flex min-h-0 flex-1 flex-col">
-            <SwarmMap
-              state={state}
-              selected={selected}
-              onSelect={setSelected}
-              isolated={isolated}
-            />
-          </div>
-          <LiveStatsBar state={state} analysis={analysis} />
-          <div className="h-[180px] shrink-0">
-            <RawDataScope state={state} />
-          </div>
+      {/* stage: the map fills everything; panels float on top */}
+      <main className="gotham-vignette relative min-h-0 flex-1 overflow-hidden">
+        {/* full-bleed swarm map background */}
+        <div className="gotham-map absolute inset-0 flex flex-col">
+          <SwarmMap
+            state={state}
+            selected={selected}
+            onSelect={setSelected}
+            isolated={isolated}
+          />
         </div>
 
-        <aside className="scroll-thin flex w-[360px] min-w-[320px] flex-col gap-4 overflow-y-auto">
+        {/* left rail — detection + reasoning + model report */}
+        <aside className="gotham-rail scroll-thin absolute bottom-3 left-3 top-14 z-10 flex w-[300px] flex-col gap-3 overflow-y-auto">
           <DetectorPanel state={state} />
-          <ReportCard />
           <WhyFlagged state={state} />
-          <EventFeed state={state} />
+          <ReportCard />
         </aside>
-      </main>
 
-      <AttackControls selected={selected} send={send} />
+        {/* right rail — live data feed + activity */}
+        <aside className="gotham-rail absolute bottom-3 right-3 top-14 z-10 flex w-[300px] flex-col gap-3">
+          <div className="h-[230px] shrink-0">
+            <RawDataScope state={state} />
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <EventFeed state={state} />
+          </div>
+        </aside>
+
+        {/* bottom dock — telemetry strip + judge levers, floating center */}
+        <div className="glass-dock absolute bottom-3 left-1/2 z-20 w-[720px] max-w-[calc(100%-640px)] -translate-x-1/2 overflow-hidden">
+          <LiveStatsBar state={state} analysis={analysis} />
+          <AttackControls selected={selected} send={send} />
+        </div>
+      </main>
     </div>
   );
 }

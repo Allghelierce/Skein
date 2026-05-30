@@ -187,6 +187,64 @@ body {
 .react-flow__attribution { display: none; }
 .react-flow__edge-path { transition: stroke 0.4s ease; }
 
+/* ── Gotham layout: full-bleed map with glass intel panels floating over it ── */
+
+/* the map fills the whole frame, borderless — it IS the background */
+.gotham-map .panel {
+  border-radius: 0;
+  border-color: transparent;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* floating rails: clicks fall through the gaps to the live map underneath,
+   but land on the panels themselves */
+.gotham-rail { pointer-events: none; }
+.gotham-rail > * { pointer-events: auto; }
+
+/* every HudFrame panel inside a rail (and the bottom dock) becomes glass:
+   translucent, blurred, with a faint top highlight and deep shadow */
+.gotham-rail .panel,
+.glass-dock {
+  background: rgba(8, 10, 14, 0.62);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.75);
+}
+
+.glass-dock {
+  border-radius: 8px;
+  pointer-events: auto;
+}
+
+/* children of the dock (telemetry strip, attack controls) go transparent so the
+   one glass slab reads as a single unit; hairline divider between them */
+.glass-dock > * {
+  background: transparent !important;
+  border: none !important;
+}
+.glass-dock > * + * {
+  border-top: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+
+/* a subtle vignette so floating panels read against the bright map center */
+.gotham-vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gotham-rail .panel,
+  .glass-dock { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+}
+
 /* ── Boot screen — brief militaristic bring-up ───────────────────────────── */
 @keyframes boot-fade { to { opacity: 0; visibility: hidden; } }
 .boot-out { animation: boot-fade 0.5s ease-out forwards; }
