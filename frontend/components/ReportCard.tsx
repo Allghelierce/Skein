@@ -31,36 +31,22 @@ function topConfusion(): { from: string; to: string; n: number } | null {
   return best.n > 0 ? best : null;
 }
 
-export function ReportCard({ onExpand }: { onExpand?: () => void } = {}) {
+export function ReportCard() {
   const confusion = topConfusion();
   const fiMax = Math.max(...R.feature_importance.map((f) => f.value));
   const bestAcc = Math.max(...R.comparison.map((m) => m.accuracy));
 
   return (
     <HudFrame
-      className="flex h-full flex-col"
       title="Model Report"
       right={
-        <span className="flex items-center gap-2 text-[0.66rem] text-ink-dim">
-          <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.green }} />
-            {R.best_model}
-          </span>
-          {onExpand && (
-            <button
-              type="button"
-              onClick={onExpand}
-              aria-label="Open full model report"
-              title="Open full report"
-              className="grid h-5 w-5 place-items-center rounded border border-line text-ink-dim transition-colors hover:border-ink-faint hover:text-ink"
-            >
-              <ExpandIcon />
-            </button>
-          )}
+        <span className="flex items-center gap-1.5 text-[0.66rem] text-ink-dim">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: HEX.green }} />
+          {R.best_model}
         </span>
       }
     >
-      <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="p-4">
         {/* headline */}
         <div className="flex items-end justify-between">
           <div>
@@ -144,16 +130,6 @@ export function ReportCard({ onExpand }: { onExpand?: () => void } = {}) {
         </Section>
       </div>
     </HudFrame>
-  );
-}
-
-function ExpandIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M15 3h6v6" />
-      <path d="M10 14 21 3" />
-      <path d="M21 14v7H3V3h7" />
-    </svg>
   );
 }
 

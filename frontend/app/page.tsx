@@ -61,20 +61,16 @@ export default function Page() {
           <BrandBar />
         </div>
 
-        {/* left rail — detection + reasoning + model report. The report fills the
-            remaining height so the rail matches the right rail; the ⤢ button in its
-            header opens the full report popout. */}
-        <aside className="gotham-rail absolute bottom-[140px] left-3 top-14 z-10 flex w-[300px] flex-col gap-3">
-          <DetectorPanel state={state} />
+        {/* left rail — detection + reasoning. The ML Detector carries the Model
+            Report launcher (⤢), which opens the full report popout. */}
+        <aside className="gotham-rail scroll-thin absolute bottom-3 left-3 top-14 z-10 flex w-[300px] flex-col gap-3 overflow-y-auto">
+          <DetectorPanel state={state} onOpenReport={() => setReportOpen(true)} />
           <WhyFlagged state={state} />
-          <div className="min-h-0 flex-1">
-            <ReportCard onExpand={() => setReportOpen(true)} />
-          </div>
         </aside>
 
-        {/* right rail — live data feed + activity (stops short of the bottom-right
-            so the comms readout can tuck into the corner beneath it) */}
-        <aside className="gotham-rail absolute bottom-[140px] right-3 top-14 z-10 flex w-[300px] flex-col gap-3">
+        {/* right rail — raw data scope + Lila (AI co-pilot). Capped well above the
+            bottom-right so Lila's feed never overlaps the comms-to-base overlay. */}
+        <aside className="gotham-rail absolute bottom-[168px] right-3 top-14 z-10 flex w-[300px] flex-col gap-3">
           <div className="h-[230px] shrink-0">
             <RawDataScope state={state} />
           </div>
