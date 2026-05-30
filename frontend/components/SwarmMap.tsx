@@ -565,6 +565,17 @@ function MapField() {
         <TerrainTile />
       </div>
 
+      {/* tactical grid scrolling top-to-bottom — faster than the relief below, so
+          the parallax makes the swarm clearly read as covering ground in flight */}
+      <div
+        className="grid-scroll absolute inset-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(77,125,163,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(77,125,163,0.12) 1px, transparent 1px)",
+          backgroundSize: "78px 78px",
+        }}
+      />
+
       <div
         className="absolute inset-0"
         style={{
