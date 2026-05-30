@@ -45,7 +45,6 @@ export default function Page() {
   return (
     <div className="gotham-layout relative z-10 flex h-screen flex-col">
       <BootScreen />
-      <BrandBar />
 
       {/* stage: the map fills everything; panels float on top */}
       <main className="gotham-vignette relative min-h-0 flex-1 overflow-hidden">
@@ -57,6 +56,11 @@ export default function Page() {
             onSelect={setSelected}
             isolated={isolated}
           />
+        </div>
+
+        {/* brand — centered, tray-less, floating over the top of the map */}
+        <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center">
+          <BrandBar />
         </div>
 
         {/* left rail — detection + reasoning + model report launcher */}
