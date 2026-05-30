@@ -34,6 +34,7 @@ import { HEX, linkColor, nodeColor } from "@/lib/palette";
 import { HudFrame } from "@/components/Hud";
 import type { Selection } from "@/lib/ws";
 import { computeRisk } from "@/lib/risk";
+import { useAudioCues } from "@/lib/audio";
 
 const CANVAS_W = 840;
 const CANVAS_H = 580;
@@ -118,6 +119,22 @@ function DroneGlyph({ color, size = 16 }: { color: string; size?: number }) {
       <circle cx="6" cy="18" r="2.2" />
       <circle cx="18" cy="18" r="2.2" />
       <rect x="9.5" y="9.5" width="5" height="5" rx="1" fill={color} stroke="none" />
+    </svg>
+  );
+}
+
+function SpeakerIcon({ on }: { on: boolean }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" stroke="none" />
+      {on ? (
+        <>
+          <path d="M16 8.5a5 5 0 0 1 0 7" />
+          <path d="M18.5 6a8 8 0 0 1 0 12" />
+        </>
+      ) : (
+        <path d="M16 9l5 6M21 9l-5 6" />
+      )}
     </svg>
   );
 }
@@ -852,14 +869,30 @@ export function SwarmMap({ state, selected, onSelect, isolated }: Props) {
     [],
   );
 
+  // optional, mutable audio cues — off by default (autoplay policy + restraint)
+  const [audioOn, setAudioOn] = useState(false);
+  useAudioCues({ state, isolatedCount: isolated.size, enabled: audioOn });
+
   return (
     <HudFrame className="relative min-h-0 flex-1 overflow-hidden">
       <div className="pointer-events-none absolute left-4 top-3 z-20 panel-title">Swarm Map</div>
-      <div className="pointer-events-none absolute right-4 top-3 z-20 flex items-center gap-2 text-[0.68rem]">
-        <span className="h-1.5 w-1.5 rounded-full" style={{ background: hostiles ? HEX.red : HEX.green }} />
-        <span style={{ color: hostiles ? HEX.red : HEX.dim }}>
-          {hostiles ? `${hostiles} contact${hostiles > 1 ? "s" : ""}` : "All nominal"}
-        </span>
+      <div className="pointer-events-none absolute right-4 top-3 z-20 flex items-center gap-3 text-[0.68rem]">
+        <button
+          type="button"
+          onClick={() => setAudioOn((v) => !v)}
+          className="pointer-events-auto grid h-6 w-6 place-items-center rounded border border-line bg-panel-2/80 transition-colors hover:border-ink-faint"
+          style={{ color: audioOn ? HEX.green : HEX.faint }}
+          aria-label={audioOn ? "Mute audio cues" : "Enable audio cues"}
+          title={audioOn ? "Audio cues on" : "Audio cues off"}
+        >
+          <SpeakerIcon on={audioOn} />
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: hostiles ? HEX.red : HEX.green }} />
+          <span style={{ color: hostiles ? HEX.red : HEX.dim }}>
+            {hostiles ? `${hostiles} contact${hostiles > 1 ? "s" : ""}` : "All nominal"}
+          </span>
+        </div>
       </div>
 
       <MapField />
