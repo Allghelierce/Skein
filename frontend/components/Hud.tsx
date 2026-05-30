@@ -18,7 +18,7 @@ export function HudFrame({
   return (
     <section className={`panel ${className}`}>
       {(title || right) && (
-        <div className="flex items-center justify-between border-b border-line-soft px-4 py-2.5">
+        <div className="flex items-center justify-between border-b border-line-soft px-4 py-2">
           {title ? <span className="panel-title">{title}</span> : <span />}
           {right}
         </div>
