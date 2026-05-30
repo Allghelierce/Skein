@@ -1,7 +1,6 @@
 // frontend/components/BrandBar.tsx
-// Centered brand lockup that floats over the top of the map (no tray / bar), the
-// same tray-less treatment as the bottom-right comms readout. A bigger, quieter
-// echo of the boot wordmark.
+// Brand lockup pinned to the top-left of the map (tray-less): the mark, the SKEIN
+// wordmark, and the "mesh defense system" tagline to the right of it.
 "use client";
 
 import { HEX } from "@/lib/palette";
@@ -10,24 +9,17 @@ const SHADOW = "0 1px 8px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.95)";
 
 export function BrandBar() {
   return (
-    <div
-      className="pointer-events-none flex flex-col items-center text-center"
-      style={{ textShadow: SHADOW }}
-    >
-      <div className="flex items-center gap-3">
-        <Mark />
-        {/* the trailing letter-spacing is balanced with matching left padding so
-            the wordmark sits visually centred next to the mark */}
-        <span
-          className="text-3xl font-bold tracking-[0.34em] text-ink"
-          style={{ paddingLeft: "0.34em" }}
-        >
-          SKEIN
-        </span>
-      </div>
-      <div className="mt-0.5 text-[0.58rem] uppercase tracking-[0.5em] text-ink-faint">
+    <div className="pointer-events-none flex items-center gap-3" style={{ textShadow: SHADOW }}>
+      <Mark />
+      <span
+        className="text-[1.7rem] font-bold leading-none tracking-[0.32em] text-ink"
+        style={{ paddingLeft: "0.32em" }}
+      >
+        SKEIN
+      </span>
+      <span className="self-center text-[0.55rem] uppercase leading-none tracking-[0.4em] text-ink-faint">
         mesh defense system
-      </div>
+      </span>
     </div>
   );
 }
@@ -40,8 +32,8 @@ function Mark() {
   // tilted and dropped out of formation so the linked edges sag toward it
   return (
     <svg
-      width="48"
-      height="34"
+      width="56"
+      height="40"
       viewBox="0 0 300 210"
       fill="none"
       aria-hidden
