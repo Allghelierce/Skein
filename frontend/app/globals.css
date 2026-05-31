@@ -127,9 +127,9 @@ body {
 @keyframes dash-march { to { stroke-dashoffset: -16; } }
 .edge-jammed { stroke-dasharray: 4 4; animation: dash-march 0.55s linear infinite; }
 
-/* bold flowing dashes for the healing reroute path */
+/* fine flowing dashes for the healing reroute path */
 @keyframes dash-flow { to { stroke-dashoffset: -24; } }
-.edge-reroute { stroke-dasharray: 7 5; animation: dash-flow 0.5s linear infinite; }
+.edge-reroute { stroke-dasharray: 5 4; animation: dash-flow 0.5s linear infinite; }
 
 /* continuous downward terrain scroll so the swarm reads as flying forward.
    two identical stacked tiles -> -50% lands exactly on the next tile = seamless. */
@@ -140,6 +140,11 @@ body {
 .terrain-scroll {
   animation: terrain-scroll 11s linear infinite;
   will-change: transform;
+  /* keep it on its own GPU layer with subpixel precision: a slow linear scroll
+     otherwise integer-snaps each frame (~1.3px/frame) and reads as jitter. */
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  contain: paint;
 }
 
 /* airspeed wake — particles shed downward behind each drone (forward flight is
