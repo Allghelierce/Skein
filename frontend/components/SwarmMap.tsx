@@ -328,7 +328,7 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
     );
   }
 
-  const width = (jammed ? 1.1 : rerouted ? 1 : 0.7) + (selected ? 0.7 : 0);
+  const width = (jammed ? 1.1 : rerouted ? 0.8 : 0.7) + (selected ? 0.7 : 0);
   // spotlight: quiet links recede during combat
   let opacity = jammed || rerouted ? 1 : active ? 0.6 : 0.42;
   if (combat && !jammed && !rerouted) opacity = active ? 0.26 : 0.16;
@@ -360,7 +360,7 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
           filter: jammed
             ? "drop-shadow(0 0 2px #ff3b5c)"
             : rerouted
-              ? "drop-shadow(0 0 3px #2ee27a)"
+              ? "drop-shadow(0 0 1.5px #2ee27a)"
               : undefined,
         }}
       />
@@ -429,10 +429,10 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
             d={path}
             fill="none"
             stroke="#aeb4bf"
-            strokeWidth={2.4}
+            strokeWidth={1.4}
             strokeLinecap="round"
             opacity={0}
-            style={{ filter: `drop-shadow(0 0 3px ${HEX.green})` }}
+            style={{ filter: `drop-shadow(0 0 1.5px ${HEX.green})` }}
           >
             <animate
               attributeName="stroke"
@@ -447,7 +447,7 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
               attributeName="stroke-width"
               dur="0.66s"
               begin={`${hopDelay}s`}
-              values="2.2;2.2;3.6;1.2"
+              values="1.4;1.4;2.2;0.8"
               keyTimes="0;0.36;0.5;1"
               repeatCount="1"
               fill="freeze"
@@ -466,10 +466,10 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
           {/* SEARCH probe: a quick neutral scan races the route being evaluated */}
           <circle
             key={`probe-${id}-${seq}`}
-            r={2.6}
+            r={2}
             fill="#cfd3da"
             opacity={0}
-            style={{ filter: "drop-shadow(0 0 3px #cfd3da)" }}
+            style={{ filter: "drop-shadow(0 0 2px #cfd3da)" }}
           >
             <animateMotion dur="0.3s" begin={`${hopDelay}s`} repeatCount="1" path={path} fill="freeze" />
             <animate
@@ -486,10 +486,10 @@ function DataEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Da
           {/* COMMIT comet: bright green dot locks the new route after the probe */}
           <circle
             key={`heal-${id}-${seq}`}
-            r={3}
+            r={2}
             fill={HEX.green}
             opacity={0}
-            style={{ filter: `drop-shadow(0 0 4px ${HEX.green})` }}
+            style={{ filter: `drop-shadow(0 0 2px ${HEX.green})` }}
           >
             <animateMotion dur="0.46s" begin={`${hopDelay + 0.26}s`} repeatCount="1" path={path} fill="freeze" />
             <animate
